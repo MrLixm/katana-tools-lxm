@@ -1,6 +1,6 @@
 # Light Viewer Annotate
 
-https://img.shields.io/badge/type-OpScript-blueviolet
+![OpScript](https://img.shields.io/badge/type-OpScript-blueviolet)
 
 Annotate (& color) lights in the viewer using their attributes.
 
@@ -46,7 +46,7 @@ This is a table where key=string, value=table.
  - The key correspond to an arbitrary token name (without the `<>`)
  - The value must be a table with 2 fixed keys:
    	- func : function to execute that will return the value querried.
-   	- params : table of arguments to pass to the above function (unpack() will be used)
+      	- params : table of arguments to pass to the above function (unpack() will be used)
 
 You already have the most basic method created to query values : `get_attr`
 
