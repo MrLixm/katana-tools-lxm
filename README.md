@@ -24,14 +24,14 @@ Else each script should always have a top docstring for documentation.
   
   - [`LightViewerAnnotate`](./src/viewer/LightViewerAnnotate) 
   
-  Annotate (& color) lights in the viewer using their attributes.
+    Annotate (& color) lights in the viewer using their attributes.
   
   - [`PointcloudWidth`](./src/viewer/PointcloudWidth)
   
       Add a `geometry.point.width` attribute to control the size of the points in the viewer.
   
   - [`PointcloudXform2P`](./src/viewer/PointcloudXform2P)
-    
+  
       Allow merging xform transformations on a pointcloud location to the `geometry.point.P` attribute.
   
 - nodegraph
