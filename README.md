@@ -5,6 +5,10 @@
 Collections of scripting stuff I wrote for Foundry's Katana software.
 
 
+| | | |
+|:-------------------------:|:-------------------------:|:-------------------------:|
+|<img width="800" alt="Create GSV scipt" src="./src/nodegraph/CreateGSV/demo.gif">  CreateGSV |  <img width="800" alt="LightViewerAnnotate script" src="./src/viewer/LightViewerAnnotate/demo.gif"> LightViewerAnnotate |<img width="800" alt="PointcloudWidth" src="./src/viewer/PointcloudWidth/demo.gif">  PointcloudWidth  |
+
 
 ## Utilisation
 
