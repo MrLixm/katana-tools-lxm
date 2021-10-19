@@ -60,6 +60,13 @@ function table2string(tablevalue)
 end
 
 
+function round(num, numDecimalPlaces)
+  -- Source: http://lua-users.org/wiki/SimpleRound
+  -- Returns: number
+  return tonumber(string.format("%." .. (numDecimalPlaces or 0) .. "f", num))
+end
+
+
 function stringify(source)
     --[[ Convert the source to a readable string , based on it's type.
     All numbers are rounded to 3 decimals.

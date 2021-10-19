@@ -2,8 +2,11 @@
 
 ![OpScript](https://img.shields.io/badge/type-OpScript-blueviolet)
 
-
 Allow merging xform transformations on a pointcloud location to the `geometry.point.P` attribute. (so translate+rotate only).
+
+![demo](./demo.gif)
+
+
 
 ## Installation
 
