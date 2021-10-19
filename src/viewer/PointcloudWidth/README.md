@@ -4,6 +4,10 @@
 
 Add a `geometry.point.width` attribute to control the size of the points in the viewer.
 
+![demo](./demo.gif)
+
+
+
 ## Installation
 
 ### .lua

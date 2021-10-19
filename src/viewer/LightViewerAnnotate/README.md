@@ -15,6 +15,10 @@ It is possible to query the light color attribute to use them to color the light
 
 
 
+![demo](./demo.gif)
+
+
+
 The published script was made for Arnold but it is possible to configure it for any renderer. See the [Development](#development) section under.
 
 
