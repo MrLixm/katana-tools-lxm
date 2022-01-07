@@ -84,7 +84,7 @@ to can lead to crappy pre-render performance.
 
 To avoid this you can abuse of `logger:debug` during development and then switch
 `LOG_LEVEL` to `info` at publish time and make sure there is only a few 
-`logger:info` calls.
+`logger:info` calls. (or use `logger:set_level()`)
 
 ## Development
 

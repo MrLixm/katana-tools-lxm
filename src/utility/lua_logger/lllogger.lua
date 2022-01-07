@@ -91,9 +91,7 @@ function table2string(tablevalue)
 
 end
 
-
 local logging = {}
-
 
 function logging:new(name)
   --[[

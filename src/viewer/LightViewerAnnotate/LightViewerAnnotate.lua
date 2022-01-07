@@ -210,8 +210,8 @@ end
 
 function get_user_attr(frame, name, default_value)
     --[[
-    Return the contrast value specified by user.
-    If not found return 2
+    Return an OpScipt user attribute.
+    If not found return the default_value
 
     Args:
         frame(int): current frame
