@@ -1,9 +1,13 @@
 --[[
-VERSION = 1
+VERSION = 2
 llloger
 
 A simple logging module based on Python one. Originaly made for use with
 Foundry's Katana software, OpScript feature.
+
+This is the inline version to be be inserted at tje top of your current OpScript.
+To turn it into the module version, replace the last line with:
+<return logging>
 
 Author: Liam Collod
 Last-Modified: 07/01/2022
@@ -88,7 +92,7 @@ function table2string(tablevalue)
 end
 
 
-logging = {}
+local logging = {}
 
 
 function logging:new(name)
@@ -124,6 +128,11 @@ function logging:new(name)
 
   attrs["level"] = attrs["levels"][LOG_LEVEL]
 
+  function attrs:set_level(level)
+    -- level(string): see self.levels keys for value
+    self.level = attrs["levels"][level]
+  end
+
   function attrs:_log(level, message)
 
     if level.weight < self.level.weight then
@@ -157,4 +166,4 @@ function logging:new(name)
 end
 
 
-logger = logging:new("GiveMeAName")
+local logger = logging:new("GiveMeAName")

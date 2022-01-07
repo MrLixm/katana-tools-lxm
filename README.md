@@ -44,7 +44,12 @@ Else each script should always have a top docstring for documentation.
 
       Divide the current render resolution by the given amount.
 
-
+- utility
+  
+  - [`llloger`](./src/utility/lua_logger)
+  
+    A simple lua logging module based on Python's one. 
+    
 
 ## Licensing
 
