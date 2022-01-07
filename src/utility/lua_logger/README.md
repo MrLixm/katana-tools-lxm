@@ -61,7 +61,7 @@ set "LUA_PATH=%LUA_PATH%;Z:\somedir\katana\lllogger.lua"
 In your OpScript you can then do :
 
 ```lua
-local logging = require "llloger"
+local logging = require "lllogger"
 local logger = logging:new("Test")
 
 logger:debug("this is a debug message")
@@ -77,7 +77,7 @@ logger:error("this is an error message")
 The message will be printed only if the `LOG_LEVEL` variable has a lower 'weight'
 than the level used.
 
-As at the end, `llloger` use `print()` to display the content. 
+As at the end, `lllogger` use `print()` to display the content. 
 You should remember that in Katana, printing in the console has a latency cost. 
 So having just 3 message log times the number of location the script is excuted
 to can lead to crappy pre-render performance.
