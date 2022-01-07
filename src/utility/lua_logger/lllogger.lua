@@ -1,8 +1,13 @@
 --[[
+VERSION = 1
 llloger
 
 A simple logging module based on Python one. Originaly made for use with
 Foundry's Katana software, OpScript feature.
+
+Author: Liam Collod
+Last-Modified: 07/01/2022
+
 
 ]]
 
