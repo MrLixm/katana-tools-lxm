@@ -1,5 +1,5 @@
 --[[
-VERSION = 2
+VERSION = 7
 llloger
 
 A simple logging module based on Python one. Originaly made for use with
@@ -25,7 +25,11 @@ function round(num, numDecimalPlaces)
     numDecimalPlaces(number): number of decimal to keep
   Returns: number
   ]]
-  return tonumber(string.format("%." .. (numDecimalPlaces or 0) .. "f", num))
+  local buf = {}
+  buf[#buf + 1] = "%."
+  buf[#buf + 1] = (numDecimalPlaces or 0)
+  buf[#buf + 1] = "f"
+  return tonumber(string.format(table.concat(buf), num))
 end
 
 function stringify(source)
@@ -40,7 +44,7 @@ function stringify(source)
 
     if (type(source) == "table") then
       if #source == 1 then
-        return source[1]
+        return stringify(source[1])
       end
       source = table2string(source)
 
@@ -67,27 +71,27 @@ function table2string(tablevalue)
 
   Returns:
     str:
+
+  TODO:
+    doesnt output a string when the input is <{{}}>
   ]]
 
+  -- to avoid string concatenation in loop using a table
   local outtable = {"{"}
-  local ctable = {} -- to avoid string concatenation in loop
 
   for k, v in pairs(tablevalue) do
-    -- to avoid string concatenation in loop
     if (type(k) == "number") then
-      table.insert(outtable, stringify(v)..", ")
+      outtable[#outtable + 1] = stringify(v)
+      outtable[#outtable + 1] = ","
     else
-      ctable[1] = stringify(k)
-      ctable[2] = "="
-      ctable[3] = stringify(v)
-      ctable[4] = ", "
-      table.insert(outtable,tostring(table.concat(ctable)))
+      outtable[#outtable + 1] = stringify(k)
+      outtable[#outtable + 1] = "="
+      outtable[#outtable + 1] = stringify(v)
+      outtable[#outtable + 1] = ", "
     end
   end
-
-  table.insert(outtable, "}")
-
-  return table.concat(outtable)
+  outtable[#outtable + 1] = "}"
+  return tostring(table.concat(outtable))
 
 end
 
@@ -131,32 +135,59 @@ function logging:new(name)
     self.level = attrs["levels"][level]
   end
 
-  function attrs:_log(level, message)
+  function attrs:_log(level, messages, context)
+    --[[
+    Args:
+      level(table): level object as defined in self.levels
+      messages(table): list of object to display
+      context(str): from where the log function is executed.
+        Usually you can pass the function's name
+    ]]
 
     if level.weight < self.level.weight then
       return
     end
+    -- avoid string conact in loops using a table buffer
+    local outbuf = {}
+    -- make sure messages is always a table to iterate later
+    if (type(messages)~="table") then
+      messages = {messages}
+    end
 
-    message = stringify(message)
+    outbuf[#outbuf + 1] = "[OpScript]["
+    outbuf[#outbuf + 1] = level.name
+    outbuf[#outbuf + 1] = "]["
+    outbuf[#outbuf + 1] = self.name
+    outbuf[#outbuf + 1] = "]"
+    if context then
+      outbuf[#outbuf + 1] = "["
+      outbuf[#outbuf + 1] = stringify(context)
+      outbuf[#outbuf + 1] = "] "
+    end
+    for mindex, mvalue in ipairs(messages) do
+      outbuf[#outbuf + 1] = stringify(mvalue)
+      outbuf[#outbuf + 1] = " "
+    end
 
-    print("[OpScript]["..level.name.."]["..self.name.."] "..message)
+    -- concatenate the buffer to string
+    print(table.concat(outbuf))
 
   end
 
-  function attrs:debug(message)
-    self:_log(self.levels.debug, message)
+  function attrs:debug(...)
+    self:_log(self.levels.debug, { ... }, debug.getinfo(2).name)
   end
 
-  function attrs:info(message)
-    self:_log(self.levels.info, message)
+  function attrs:info(...)
+    self:_log(self.levels.info, { ... }, debug.getinfo(2).name)
   end
 
-  function attrs:warning(message)
-    self:_log(self.levels.warning, message)
+  function attrs:warning(...)
+    self:_log(self.levels.warning, { ... }, debug.getinfo(2).name)
   end
 
-  function attrs:error(message)
-    self:_log(self.levels.error, message)
+  function attrs:error(...)
+    self:_log(self.levels.error, { ... }, debug.getinfo(2).name)
   end
 
   return attrs
