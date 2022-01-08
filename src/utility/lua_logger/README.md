@@ -5,6 +5,18 @@
 A simple lua logging module based on Python one. 
 Originaly made for use with Foundry's Katana software, OpScript feature.
 
+![cover](./cover.png)
+
+## Features
+
+- Log level system where you can define what level of message is allowed to be displayed.
+- Multiples logger with different log level can be created in the same script.
+- Convert tables and nested tables to a human-readable one line string.
+- Round any numbers to 3 decimal
+- Multiples arguments can be passed : `logger:debug("text", 69, {"table"})`
+- Prefix the message with the function's name the log is being called from.
+- Should be loop safe (no string concatenation)
+
 ## Installation & Use
 
 ### Insert inline
