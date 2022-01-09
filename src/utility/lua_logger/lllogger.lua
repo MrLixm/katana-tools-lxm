@@ -32,64 +32,92 @@ function round(num, numDecimalPlaces)
   return tonumber(string.format(table.concat(buf), num))
 end
 
-function stringify(source)
+function stringify(source, index)
     --[[
     Convert the source to a readable string , based on it's type.
     All numbers are rounded to 3 decimals.
 
-    Parameters:
+    Args:
       source(any): any type
+      index(int): recursive level of stringify
     ]]
-    local number_round = 3  -- number of decimals to keep.
+  local number_round = 3  -- number of decimals to keep.
+  if not index then
+    index = 0
+  end
 
-    if (type(source) == "table") then
-      if #source == 1 then
-        return stringify(source[1])
-      end
-      source = table2string(source)
-
-    elseif (type(source) == "number") then
-      source = tostring(round(source, number_round))
-
-    else
-      source = tostring(source)
-
+  if (type(source) == "table") then
+    if #source == 1 then
+      return stringify(source[1], index+1)
     end
+    source = table2string(source, index)
+
+  elseif (type(source) == "number") then
+    source = tostring(round(source, number_round))
+
+  else
+    source = tostring(source)
+
+  end
 
   return source
 
 end
 
-function table2string(tablevalue)
+function table2string(tablevalue, index)
     --[[
   Convert a table to a one line string.
   If the key is a number, only the value is kept.
   If the key is something else, it is formatted to "stringify(key)=stringify(value),"
 
-  Parameters:
+  Args:
     tablevalue(table): table to convert to string
-
+    index(int): recursive level of stringify
   Returns:
     str:
 
-  TODO:
-    doesnt output a string when the input is <{{}}>
   ]]
 
+  -- check if table is empty
+  if next(tablevalue) == nil then
+   return "{}"
+  end
+
+  local indent = 4
+  -- avoid flooding the terminal with lines for very long tables
+  local max_length = 50
+  local linebreak = "\n"
+  local inline_indent = string.rep(" ", index * indent + indent)
+  local inline_indent_end = string.rep(" ", index * indent)
+  if not index then
+    index = 0
+  end
+  if #tablevalue > max_length then
+    linebreak = ""
+    inline_indent = ""
+    inline_indent_end = ""
+  end
+
   -- to avoid string concatenation in loop using a table
-  local outtable = {"{"}
+  local outtable = {}
+  outtable[#outtable + 1] = "{\n"
 
   for k, v in pairs(tablevalue) do
     if (type(k) == "number") then
-      outtable[#outtable + 1] = stringify(v)
+      outtable[#outtable + 1] = inline_indent
+      outtable[#outtable + 1] = stringify(v, index+1)
       outtable[#outtable + 1] = ","
+      outtable[#outtable + 1] = linebreak
     else
-      outtable[#outtable + 1] = stringify(k)
+      outtable[#outtable + 1] = inline_indent
+      outtable[#outtable + 1] = stringify(k, index+1)
       outtable[#outtable + 1] = "="
-      outtable[#outtable + 1] = stringify(v)
-      outtable[#outtable + 1] = ", "
+      outtable[#outtable + 1] = stringify(v, index+1)
+      outtable[#outtable + 1] = ","
+      outtable[#outtable + 1] = linebreak
     end
   end
+  outtable[#outtable + 1] = inline_indent_end
   outtable[#outtable + 1] = "}"
   return tostring(table.concat(outtable))
 
