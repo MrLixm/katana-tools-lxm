@@ -1,5 +1,5 @@
 --[[
-VERSION = 7
+VERSION = 9
 llloger
 
 A simple logging module based on Python one. Originaly made for use with
@@ -32,28 +32,97 @@ function round(num, numDecimalPlaces)
   return tonumber(string.format(table.concat(buf), num))
 end
 
-function stringify(source, index)
-    --[[
-    Convert the source to a readable string , based on it's type.
-    All numbers are rounded to 3 decimals.
+local strFmtSettings = {}
+function strFmtSettings:new()
+  --[[
+  A base class that hold configuration settings for string formatting used
+  by stringify() and table2string()
+  ]]
 
-    Args:
-      source(any): any type
-      index(int): recursive level of stringify
-    ]]
-  local number_round = 3  -- number of decimals to keep.
+  -- these are the default values
+  local attrs = {
+    -- how much decimals should be kept for floating point numbers
+    ["numbers"] = {
+      ["round"] = 3
+    },
+    -- nil by default cause the table2string already have some defaults
+    ["tables"] = {
+      -- how much whitespaces is considered an indent
+      ["indent"] = 4,
+      -- max table size before displaying it as oneline to avoid flooding
+      ["length_max"] = 50,
+      -- true to display the table on multipels lines with indents
+      ["linebreaks"] = true,
+      ["display_indexes"] = false
+    },
+    ["strings"] = {
+      ["display_quotes"] = false
+    }
+  }
+
+  function attrs:set_num_round(round_value)
+    -- round_value(int):
+    self.numbers.round = round_value
+  end
+
+  function attrs:set_str_display_quotes(display_value)
+    -- display_value(bool):
+    self.strings.display_quotes = display_value
+  end
+
+  function attrs:set_tbl_display_indexes(display_value)
+    -- display_value(bool):
+    self.tables.display_indexes = display_value
+  end
+
+  function attrs:set_tbl_linebreaks(display_value)
+    -- display_value(bool):
+    self.tables.linebreaks = display_value
+  end
+
+  function attrs:set_tbl_length_max(length_max)
+    -- length_max(int):
+    self.tables.length_max = length_max
+  end
+
+  function attrs:set_tbl_indent(indent)
+    -- indent(int):
+    self.tables.indent = indent
+  end
+
+  return attrs
+
+end
+
+function stringify(source, index, settings)
+  --[[
+  Convert the source to a readable string , based on it's type.
+
+  Args:
+    source(any): any type
+    index(int): recursive level of stringify
+    settings(strFmtSettings or nil): configure how source is formatted
+  ]]
+  if not settings then
+    settings = strFmtSettings:new()
+  end
+
   if not index then
     index = 0
   end
 
+
   if (type(source) == "table") then
-    if #source == 1 then
-      return stringify(source[1], index+1)
-    end
-    source = table2string(source, index)
+    source = table2string(source, index, settings)
 
   elseif (type(source) == "number") then
-    source = tostring(round(source, number_round))
+    source = tostring(round(source, settings.numbers.round))
+
+  elseif (type(source) == "string") and settings.strings.display_quotes == true then
+    local buf = {"\""}
+    buf[#buf + 1] = source
+    buf[#buf + 1] = "\""
+    source = table.concat(buf)
 
   else
     source = tostring(source)
@@ -64,15 +133,21 @@ function stringify(source, index)
 
 end
 
-function table2string(tablevalue, index)
+function table2string(tablevalue, index, settings)
     --[[
-  Convert a table to a one line string.
+  Convert a table to human readable string.
+  By default formatted on multiples lines for clarity. Specify tdtype=oneline
+    to get no line breaks.
   If the key is a number, only the value is kept.
   If the key is something else, it is formatted to "stringify(key)=stringify(value),"
+  If the table is too long (max_length), it is formatted as oneline
 
   Args:
     tablevalue(table): table to convert to string
-    index(int): recursive level of stringify
+    index(int): recursive level of conversions used for indents
+    settings(strFmtSettings or nil):
+      Configure how table are displayed.
+
   Returns:
     str:
 
@@ -83,36 +158,58 @@ function table2string(tablevalue, index)
    return "{}"
   end
 
-  local indent = 4
-  -- avoid flooding the terminal with lines for very long tables
-  local max_length = 50
-  local linebreak = "\n"
-  local inline_indent = string.rep(" ", index * indent + indent)
-  local inline_indent_end = string.rep(" ", index * indent)
+  -- if no index specified recursive level is 0 (first time)
   if not index then
     index = 0
   end
-  if #tablevalue > max_length then
+
+  local tsettings
+  if settings and settings.tables then
+    tsettings = settings.tables
+  else
+    tsettings = strFmtSettings:new().tables
+  end
+
+  local linebreak_start = "\n"
+  local linebreak = "\n"
+  local inline_indent = string.rep(
+      " ", index * tsettings.indent + tsettings.indent
+  )
+  local inline_indent_end = string.rep(
+      " ", index * tsettings.indent
+  )
+
+  -- if the table is too long make it one line with no line break
+  if #tablevalue > tsettings.length_max then
     linebreak = ""
+    inline_indent = ""
+    inline_indent_end = ""
+  end
+  -- if specifically asked for the table to be displayed as one line
+  if tsettings.linebreaks == false then
+    linebreak = ""
+    linebreak_start = ""
     inline_indent = ""
     inline_indent_end = ""
   end
 
   -- to avoid string concatenation in loop using a table
   local outtable = {}
-  outtable[#outtable + 1] = "{\n"
+  outtable[#outtable + 1] = "{"
+  outtable[#outtable + 1] = linebreak_start
 
   for k, v in pairs(tablevalue) do
-    if (type(k) == "number") then
+    -- if table is build with number as keys, just display the value
+    if (type(k) == "number") and tsettings.display_indexes == false then
       outtable[#outtable + 1] = inline_indent
-      outtable[#outtable + 1] = stringify(v, index+1)
+      outtable[#outtable + 1] = stringify(v, index+1, settings)
       outtable[#outtable + 1] = ","
       outtable[#outtable + 1] = linebreak
     else
       outtable[#outtable + 1] = inline_indent
-      outtable[#outtable + 1] = stringify(k, index+1)
+      outtable[#outtable + 1] = stringify(k, index+1, settings)
       outtable[#outtable + 1] = "="
-      outtable[#outtable + 1] = stringify(v, index+1)
+      outtable[#outtable + 1] = stringify(v, index+1, settings)
       outtable[#outtable + 1] = ","
       outtable[#outtable + 1] = linebreak
     end
@@ -153,7 +250,9 @@ function logging:new(name)
         weight = 40,
       }
     },
-    level = nil
+    level = nil,
+    formatting = strFmtSettings:new()
+
   }
 
   attrs["level"] = attrs["levels"][LOG_LEVEL]
@@ -193,7 +292,7 @@ function logging:new(name)
       outbuf[#outbuf + 1] = "] "
     end
     for mindex, mvalue in ipairs(messages) do
-      outbuf[#outbuf + 1] = stringify(mvalue)
+      outbuf[#outbuf + 1] = stringify(mvalue, nil, self.formatting)
       outbuf[#outbuf + 1] = " "
     end
 

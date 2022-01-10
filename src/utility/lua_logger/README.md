@@ -11,13 +11,21 @@ Originaly made for use with Foundry's Katana software, OpScript feature.
 
 - Log level system where you can define what level of message is allowed to be displayed.
 - Multiples logger with different log level can be created in the same script.
-- Convert tables and nested tables to a human-readable one line string.
-- Round any numbers to 3 decimal
+- Convert tables and nested tables to a human-readable string (see settings).
 - Multiples arguments can be passed : `logger:debug("text", 69, {"table"})`
 - Prefix the message with the function's name the log is being called from.
 - Should be loop safe (no string concatenation)
+- String formatting settings class with options to format the displayed output:
+  - number : round decimals
+  - string : display literal quotes around strings
+  - tables : display tables with line breaks or as one-line
+  - tables : indent amount for multi-line tables
+  - tables : toggle display of tables indexes
+  - tables : maximum table length allowed before the table is forced to one-line
 
 ## Installation & Use
+
+You have 2 options to install the script :
 
 ### Insert inline
 
@@ -35,11 +43,6 @@ logger:info("any object")
 logger:warning("any object")
 logger:error("any object")
 
--- functions used by the logger but that you could use for other reasons
-stringify()
-round()
-table2string()
-
 ```
 
 The `LOG_LEVEL` variable can have the following values :
@@ -50,6 +53,10 @@ local LOG_LEVEL = "info"
 local LOG_LEVEL = "warning"
 local LOG_LEVEL = "error"
 
+```
+but you can also override it by using : 
+```lua
+logger:set_level("warning")
 ```
 
 ### Module
@@ -84,6 +91,34 @@ logger:info("this is an info message")
 logger:error("this is an error message")
 ```
 
+### Formatting
+
+version 9+ include some formatting options to customize the displayed result.
+These settings are stored on the logger in the `formatting` key. You can then 
+use the functions or directly override the keys :
+
+```lua
+local logging = require "lllogger"
+local logger = logging:new("TestFmt")
+
+-- these 2 lines does the same thing
+logger.formatting:set_tbl_linebreaks(true)
+logger.formatting.tables.linebreaks = true
+
+-- all function with default value
+logger.formatting:set_num_round(3)
+logger.formatting:set_str_display_quotes(false)
+logger.formatting:set_tbl_display_indexes(false)
+logger.formatting:set_tbl_linebreaks(true)
+logger.formatting:set_tbl_length_max(50)
+logger.formatting:set_tbl_indent(4)
+```
+
+Example with a table containing lot of data, table is displayed as multiples
+lines except for the tables with a lot of values.
+
+![fomatting demo](./fmt-demo.png)
+
 ## About
 
 The message will be printed only if the `LOG_LEVEL` variable has a lower 'weight'
@@ -95,9 +130,14 @@ So having just 3 message log times the number of location the script is excuted
 to can lead to crappy pre-render performance.
 
 To avoid this you can abuse of `logger:debug` during development and then switch
-`LOG_LEVEL` to `info` at publish time and make sure there is only a few 
-`logger:info` calls. (or use `logger:set_level()`)
+`LOG_LEVEL`  (or use `logger:set_level()`) to `info` at publish time and make
+sure there is only a few `logger:info` calls.
 
 ## Development
 
-empty
+### Using outside of Katana
+
+You can remove the `"[OpScript]"` prefix by modifying the `_log` method of the
+`logging` class.
+
+Everything else should work outside of Katana.
