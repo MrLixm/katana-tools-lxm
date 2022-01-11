@@ -247,6 +247,7 @@ function pointcloudData:new(location, time)
     self:build_common()
     self:build_arbitrary()
     self:build_sources()
+    self:validate()
   end
 
   function attrs:build_sources()
@@ -273,7 +274,7 @@ function pointcloudData:new(location, time)
     local pcvalues
     local value_type
 
-    -- start building the common key
+    -- start building the common key ------------------------------------------
     for i=0, #data_common / 4 - 1 do
 
       token = self:check_token(data_common[4*i+2])
@@ -282,7 +283,7 @@ function pointcloudData:new(location, time)
       path = data_common[4*i+1]
       pcvalues, value_type = get_loc_attr(self.location, path, self.time)
 
-      -- process special cases here
+      -- process special cases here --------------------
       if token == "points" then
         -- <values> key should always be a table so just fill it with 0 here
         local pointsvalue = {}
@@ -302,27 +303,49 @@ function pointcloudData:new(location, time)
       }
 
     end
-    -- now we do result validation
-    local logmsg
 
+    -- end build_common
+  end
+
+  function attrs:validate()
+    --[[
+    Verify that self is properly built
+    ]]
+
+    -- attr points must always exists
     if not self.common.points then
       logerror(
-        "[pointcloudData][build_common] Missing attribute $points on source <",
+        "[pointcloudData][validate] Missing attribute $points on source <",
         self.location,
         ">."
       )
     end
 
-    local pointsn = #self.common.points.values -- int: number of points
-    local attrlength
+    -- there is no point to have the matrix token + one of the trs so warn
+    if self.common.matrix and (
+        self.common.translation or
+        self.common.rotation or
+        self.common.scale or
+        self.common.rotationX
+    ) then
+      logger:warning(
+          "[pointcloudData][validate] Source <", self.location,
+          "> specify a $matrix token but also one of the trs. In that case \z
+           $matrix take the priority."
+      )
+    end
 
-    for attrname, attrdata in pairs(self.common) do
-      -- attrdata can be <false> if not built
+    local pointsn = #self.common.points.values * self.common.points.multiplier
+    local attrlength
+    for attrname, attrdata in ipairs(self.common) do
+      -- attrdata can be <false> if not built so skip if so
       if attrdata then
+
+        --we check first that the <grouping> and <points> attribute seems valid
         attrlength = #(attrdata.values) / attrdata.grouping
         if attrlength ~= pointsn then
           logerror(
-              "[pointcloudData][build_common] Common attribute <", attrname,
+              "[pointcloudData][validate] Common attribute <", attrname,
               "> as an odd number of values : ", tostring(#(attrdata.values)),
               " / ", tostring(attrdata.grouping), " = ", attrlength,
               " while $points=", pointsn
