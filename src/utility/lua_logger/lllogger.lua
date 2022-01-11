@@ -198,7 +198,7 @@ function table2string(tablevalue, index, settings)
   outtable[#outtable + 1] = "{"
   outtable[#outtable + 1] = linebreak_start
 
-  for k, v in pairs(tablevalue) do
+  for k, v in ipairs(tablevalue) do
     -- if table is build with number as keys, just display the value
     if (type(k) == "number") and tsettings.display_indexes == false then
       outtable[#outtable + 1] = inline_indent
