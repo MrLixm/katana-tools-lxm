@@ -12,15 +12,16 @@ logger:set_level("debug")
 
 function conkat(...)
   local buf = {}
-  for _,v in ipairs(arg) do
-    buf[ #buf + 1 ] = tostring(v)
+  for i=1, select("#",...) do
+    buf[ #buf + 1 ] = tostring(select(i,...))
   end
   return table.concat(buf)
 end
 
 function logerror(...)
   --[[
-  log an error first then stop the script by raising an error
+  log an error first then stop the script by raising a lua error()
+
   Args:
     ...(any): message to log, composed of multiple arguments
   ]]
@@ -178,29 +179,31 @@ function InstanceHierarchical:new(name)
 end
 
 local pointcloudData = {}
-function pointcloudData:new(location)
+function pointcloudData:new(location, time)
   --[[
   Args:
     location(str): scene graph location of the pointcloud
   ]]
+
   local attrs = {
-    ["location"] = location,
+    ["time"]=time,
+    ["location"]=location,
     ["common"]={
-      ["scale"]=nil,
-      ["rotation"]=nil,
-      ["translation"]=nil,
-      ["index"]=nil,
-      ["points"]=nil,
-      ["matrix"]=nil,
-      ["rotationX"]=nil,
-      ["rotationY"]=nil,
-      ["rotationZ"]=nil
+      ["scale"]=false,
+      ["rotation"]=false,
+      ["translation"]=false,
+      ["index"]=false,
+      ["points"]=false,
+      ["matrix"]=false,
+      ["rotationX"]=false,
+      ["rotationY"]=false,
+      ["rotationZ"]=false
     },
-    ["sources"]=nil,
-    ["arbitrary"]=nil
+    ["sources"]=false,
+    ["arbitrary"]=false
   }
 
-  function check_token(token)
+  function attrs:check_token(token)
     --[[
     Args:
       token(str): string that should start with <$>
@@ -223,21 +226,44 @@ function pointcloudData:new(location)
 
   end
 
-  function attrs:build_sources(time)
+  function attrs:get_common_value_at_index(attr_name, index)
+    --[[
+    ]]
+    local logmsg
+
+    local attrdata = self.attrs[attr_name]
+
+    if not attrdata then
+      logerror(
+        "[pointcloudData][get_common_value_at_index]",
+        "attr <",
+        attr_name,
+        "> is nil for "
+      ) -- TODO
+    end
+  end
+
+  function attrs:build()
+    self:build_common()
+    self:build_arbitrary()
+    self:build_sources()
+  end
+
+  function attrs:build_sources()
 
   end
 
-  function attrs:build_arbitrary(time)
+  function attrs:build_arbitrary()
 
   end
 
-  function attrs:build_common(time)
+  function attrs:build_common()
 
       -- get the attribute on the pc
     local data_common = get_loc_attr(
         self.location,
         "instancing.data.common",
-        time
+        self.time
     )
 
     local token
@@ -250,14 +276,21 @@ function pointcloudData:new(location)
     -- start building the common key
     for i=0, #data_common / 4 - 1 do
 
-      token = self.check_token(data_common[4*i+2])
+      token = self:check_token(data_common[4*i+2])
       grouping = tonumber(data_common[4*i+3])
       multiplier = tonumber(data_common[4*i+4])
       path = data_common[4*i+1]
-      pcvalues, value_type = get_loc_attr(self.location, path, time)
+      pcvalues, value_type = get_loc_attr(self.location, path, self.time)
+
       -- process special cases here
       if token == "points" then
-        pcvalues = #pcvalues / grouping * multiplier
+        -- <values> key should always be a table so just fill it with 0 here
+        local pointsvalue = {}
+        for pointindex=1, #pcvalues / grouping * multiplier do
+          pointsvalue[pointindex] = 0
+        end
+        pcvalues = pointsvalue
+        grouping = 1
       end
 
       self["common"][token] = {
@@ -280,38 +313,26 @@ function pointcloudData:new(location)
       )
     end
 
-    local pointsn = self.common.points.values -- int: number of points
+    local pointsn = #self.common.points.values -- int: number of points
     local attrlength
 
     for attrname, attrdata in pairs(self.common) do
-      attrlength = #(attrdata.values) / attrdata.grouping
-      if attrlength ~= pointsn then
-        logerror(
-          "[pointcloudData][build_common] Common attribute <", attrname,
-          "> as an odd number of values : ", tostring(#(attrdata.values)),
-          " / ", tostring(attrdata.grouping), " = ", attrlength,
-          "while $points=", pointsn
-        )
+      -- attrdata can be <false> if not built
+      if attrdata then
+        attrlength = #(attrdata.values) / attrdata.grouping
+        if attrlength ~= pointsn then
+          logerror(
+              "[pointcloudData][build_common] Common attribute <", attrname,
+              "> as an odd number of values : ", tostring(#(attrdata.values)),
+              " / ", tostring(attrdata.grouping), " = ", attrlength,
+              " while $points=", pointsn
+          )
+        end
+        -- if attrdata is not false/nil
       end
+      -- end for attrname, attrdata
     end
 
-  end
-
-  function attrs:get_common_value_at_index(attr_name, index)
-    --[[
-    ]]
-    local logmsg
-
-    local attrdata = self.attrs[attr_name]
-
-    if not attrdata then
-      logerror(
-        "[pointcloudData][get_common_value_at_index]",
-        "attr <",
-        attr_name,
-        "> is nil for "
-      ) -- TODO
-    end
   end
 
   return attrs
@@ -329,20 +350,17 @@ function create_instances()
   local u_instance_name = get_user_attr( time, "instance_name", "$error" )[1]
   local u_index_offset = get_user_attr( time, "index_offset", 0 )[1]
 
-  local data = pointcloudData:new(pointcloud_sg)
-  logger:debug("pc_data=", data)
+  local data = pointcloudData:new(u_pointcloud_sg, time)
+  data:build()
+  logger:debug("pc_data = \n", data, "\n")
 
   local instance
 
-  for i=0, data.points.values - 1 do
-
-    instance = InstanceHierarchical:new()
-
-      rx = data.rotation.values[3*i+1]
-      ry = data.rotation.values[3*i+2]
-      rz = data.rotation.values[3*i+3]
-
-  end
+  --for i=0, #data.points.values - 1 do
+  --
+  --  instance = InstanceHierarchical:new()
+  --
+  --end
 
   stime = os.clock() - stime
   logger:info(
