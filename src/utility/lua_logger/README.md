@@ -112,6 +112,8 @@ logger.formatting:set_tbl_display_indexes(false)
 logger.formatting:set_tbl_linebreaks(true)
 logger.formatting:set_tbl_length_max(50)
 logger.formatting:set_tbl_indent(4)
+logger.formatting:set_tbl_display_functions(true)
+
 ```
 
 Example with a table containing lot of data, table is displayed as multiples

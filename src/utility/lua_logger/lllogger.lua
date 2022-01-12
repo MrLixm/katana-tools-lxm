@@ -1,5 +1,5 @@
 --[[
-VERSION = 9
+VERSION = 10
 llloger
 
 A simple logging module based on Python one. Originaly made for use with
@@ -51,9 +51,10 @@ function strFmtSettings:new()
       ["indent"] = 4,
       -- max table size before displaying it as oneline to avoid flooding
       ["length_max"] = 50,
-      -- true to display the table on multipels lines with indents
+      -- true to display the table on multiples lines with indents
       ["linebreaks"] = true,
-      ["display_indexes"] = false
+      ["display_indexes"] = false,
+      ["display_functions"] = true
     },
     ["strings"] = {
       ["display_quotes"] = false
@@ -88,6 +89,11 @@ function strFmtSettings:new()
   function attrs:set_tbl_indent(indent)
     -- indent(int):
     self.tables.indent = indent
+  end
+
+  function attrs:set_tbl_display_functions(display_value)
+    -- display_value(bool):
+    self.tables.display_functions = display_value
   end
 
   return attrs
@@ -206,12 +212,18 @@ function table2string(tablevalue, index, settings)
       outtable[#outtable + 1] = ","
       outtable[#outtable + 1] = linebreak
     else
-      outtable[#outtable + 1] = inline_indent
-      outtable[#outtable + 1] = stringify(k, index+1, settings)
-      outtable[#outtable + 1] = "="
-      outtable[#outtable + 1] = stringify(v, index+1, settings)
-      outtable[#outtable + 1] = ","
-      outtable[#outtable + 1] = linebreak
+
+      if (type(v) == "function") and tsettings.display_functions == false then
+        outtable[#outtable + 1] = ""
+      else
+        outtable[#outtable + 1] = inline_indent
+        outtable[#outtable + 1] = stringify(k, index+1, settings)
+        outtable[#outtable + 1] = "="
+        outtable[#outtable + 1] = stringify(v, index+1, settings)
+        outtable[#outtable + 1] = ","
+        outtable[#outtable + 1] = linebreak
+      end
+
     end
   end
   outtable[#outtable + 1] = inline_indent_end
