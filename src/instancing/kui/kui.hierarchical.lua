@@ -243,18 +243,136 @@ function pointcloudData:new(location, time)
     end
   end
 
+  function attrs:convert_rotation2rotationaxis()
+    --[[
+    Execute after self:validate
+    ! Process through all the rotation points
+    ]]
+
+    -- check of course if the attribute is built before starting anything
+    if not self.common.rotation then
+      return
+    end
+
+    local rx = {}
+    local ry = {}
+    local rz = {}
+
+    local rall_data = {
+      { rx, {1.0, 0.0, 0.0} }, -- x
+      { ry, {0.0, 1.0, 0.0} }, -- y
+      { rz, {0.0, 0.0, 1.0} }  -- z
+    }
+    local rvalues local raxis
+
+    -- TODO check how grouping can affect that
+    -- iterate trough all rotation values with are assumed to be in x,y,z order
+    for i=0, #self.common.rotation.values / self.common.rotation.grouping - 1 do
+
+      -- iterate trough each axis x,y,z
+      for rindex, rdata in ipairs(rall_data) do
+        -- rindex=[1,2,3] ; rdata=[{ {}, {1.0, 0.0, 0.0} }, ...]
+        rvalues, raxis = rdata[1], rdata[2]
+
+        rvalues[#rvalues + 1] = self.common.rotation.values[i*self.common.rotation.grouping + rindex]
+        rvalues[#rvalues + 1] = raxis[1]
+        rvalues[#rvalues + 1] = raxis[2]
+        rvalues[#rvalues + 1] = raxis[3]
+      end
+
+    end
+
+    for i, token in ipairs({"rotationX", "rotationY", "rotationZ"}) do
+      self["common"][token] = {
+        ["path"] = "$rotation",
+        ["grouping"] = 4,
+        ["multiplier"] = self.common.rotation.multiplier,
+        ["values"] = rall_data[i][1],
+        ["type"] = self.common.rotation.type
+      }
+    end
+
+  end
+
   function attrs:build()
     self:build_common()
     self:build_arbitrary()
     self:build_sources()
     self:validate()
+    self:convert_rotation2rotationaxis()
   end
 
   function attrs:build_sources()
 
+      -- get the attribute on the pc
+    local data_sources = get_loc_attr(
+        self.location,
+        "instancing.data.sources",
+        self.time
+    )
+
+    local path
+    local iindex
+    local proxy
+    self["sources"] = {}
+
+    -- start building the common key ------------------------------------------
+    for i=0, #data_sources / 3 - 1 do
+
+      path = data_sources[3*i+1]
+      iindex = tonumber(data_sources[3*i+2])
+      proxy = data_sources[3*i+3]
+
+      -- process special cases here --------------------
+      -- none yet
+
+      self["sources"][#self["sources"] + 1] = {
+        ["path"] = path,
+        ["index"] = iindex,
+        ["proxy"] = proxy
+      }
+
+    end
+
   end
 
   function attrs:build_arbitrary()
+
+      -- get the attribute on the pc
+    local data_arbtr = get_loc_attr(
+        self.location,
+        "instancing.data.arbitrary",
+        self.time
+    )
+    local target
+    local grouping
+    local multiplier
+    local path
+    local pcvalues
+    local value_type
+    self["arbitrary"] = {}
+
+    -- start building the common key ------------------------------------------
+    for i=0, #data_arbtr / 4 - 1 do
+
+      target = data_arbtr[4*i+2]
+      grouping = tonumber(data_arbtr[4*i+3])
+      multiplier = tonumber(data_arbtr[4*i+4])
+      path = data_arbtr[4*i+1]
+      pcvalues, value_type = get_loc_attr(self.location, path, self.time)
+
+      -- process special cases here --------------------
+      -- none yet
+
+      self["arbitrary"][target] = {
+        ["path"] = path,
+        ["grouping"] = grouping,
+        ["multiplier"] = multiplier,
+        ["values"] = pcvalues,
+        ["type"] = value_type
+      }
+
+    end
 
   end
 
@@ -315,9 +433,9 @@ function pointcloudData:new(location, time)
     -- attr points must always exists
     if not self.common.points then
       logerror(
-        "[pointcloudData][validate] Missing attribute $points on source <",
-        self.location,
-        ">."
+          "[pointcloudData][validate] Missing token $points on source <",
+          self.location,
+          ">."
       )
     end
 
@@ -330,8 +448,46 @@ function pointcloudData:new(location, time)
     ) then
       logger:warning(
           "[pointcloudData][validate] Source <", self.location,
-          "> specify a $matrix token but also one of the trs. In that case \z
+          "> declare a $matrix token but also one of the trs. In that case \z
            $matrix take the priority."
+      )
+      self.common.translation = false
+      self.common.rotation = false
+      self.common.scale = false
+      self.common.rotationX = false
+      self.common.rotationY = false
+      self.common.rotationZ = false
+    end
+
+    -- verify that if one rotationX/Y/Z is declared, all other 2 also are
+    if not (
+        self.common.rotationX and
+        self.common.rotationY and
+        self.common.rotationZ
+    ) then
+      if (
+          self.common.rotationX or
+          self.common.rotationY or
+          self.common.rotationZ
+      ) then
+        logerror(
+          "[pointcloudData][validate] Source <", self.location,
+          "> doesn't have all the <rotationX/Y/Z> tokens declared \z
+          (but declare currently at least one)."
+        )
+      end
+    end
+
+    -- verify that if $rotation is declared no rotationX/Y/Z is also declared
+    if self.common.rotation and (
+        self.common.rotationX or
+        self.common.rotationY or
+        self.common.rotationZ
+    ) then
+      logger:warning(
+          "[pointcloudData][validate] Source <", self.location,
+          "> declare a rotation token but also one of the $rotationX/Y/Z.\z
+           In that case $rotation take the priority."
       )
     end
 
@@ -340,20 +496,19 @@ function pointcloudData:new(location, time)
     for attrname, attrdata in ipairs(self.common) do
       -- attrdata can be <false> if not built so skip if so
       if attrdata then
-
         --we check first that the <grouping> and <points> attribute seems valid
         attrlength = #(attrdata.values) / attrdata.grouping
         if attrlength ~= pointsn then
-          logerror(
-              "[pointcloudData][validate] Common attribute <", attrname,
-              "> as an odd number of values : ", tostring(#(attrdata.values)),
-              " / ", tostring(attrdata.grouping), " = ", attrlength,
-              " while $points=", pointsn
-          )
+        logerror(
+        "[pointcloudData][validate] Common attribute <", attrname,
+        "> as an odd number of values : ", tostring(#(attrdata.values)),
+        " / ", tostring(attrdata.grouping), " = ", attrlength,
+        " while $points=", pointsn
+        )
         end
-        -- if attrdata is not false/nil
+      -- end if attrdata is not false/nil
       end
-      -- end for attrname, attrdata
+    -- end for attrname, attrdata
     end
 
   end
