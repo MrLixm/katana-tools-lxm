@@ -5,12 +5,13 @@ todo
 local logging = require "lllogger"
 local logger = logging:new("kui.hierarchical")
 logger:set_level("debug")
+logger.formatting:set_tbl_display_functions(false)
 
 --[[ __________________________________________________________________________
   LUA UTILITIES
 ]]
 
-function conkat(...)
+local function conkat(...)
   local buf = {}
   for i=1, select("#",...) do
     buf[ #buf + 1 ] = tostring(select(i,...))
@@ -18,7 +19,7 @@ function conkat(...)
   return table.concat(buf)
 end
 
-function logerror(...)
+local function logerror(...)
   --[[
   log an error first then stop the script by raising a lua error()
 
@@ -35,7 +36,7 @@ end
   Katana UTILITIES
 ]]
 
-function get_attribute_class(kattribute)
+local function get_attribute_class(kattribute)
   --[[
   Returned a non-instanced version of the class type used by the given arg.
 
@@ -61,7 +62,7 @@ function get_attribute_class(kattribute)
   end
 end
 
-function get_user_attr(frame, name, default_value)
+local function get_user_attr(frame, name, default_value)
     --[[
     Return an OpScipt user attribute.
     If not found return the default_value. (unless asked to raise an error)
@@ -89,15 +90,18 @@ function get_user_attr(frame, name, default_value)
 
 end
 
-function get_loc_attr(location, attr_path, time)
+local function get_loc_attr(location, attr_path, time, default)
   --[[
   Get the given attribute on the location at given time.
-  Make sure no nil can be returned.
+  Raise an error is nil result I found or return <default> if specified.
+
+  If default is not nil and the attribute is not found, it is instead returned.
 
   Args:
     location(str): scene graph location to extract teh attribute from
     attr_path(str): path of the attribute on the location
     time(int): frame to extract the value from
+    default(any or nil): value to return if attribute not found.
   Returns:
     table: table of 2: {value table, table representing the original data type}
   ]]
@@ -106,15 +110,26 @@ function get_loc_attr(location, attr_path, time)
   local lattr = Interface.GetAttr(attr_path, location)
 
   if not lattr then
+
+    if default then
+      return default
+    end
+
     logerror(
       "[get_loc_attr] Attr <",attr_path,"> not found on source <",location,">."
     )
+
   end
 
   local lattr_type = get_attribute_class(lattr)
   lattr = lattr:getNearestSample(time)
 
   if not lattr then
+
+    if default then
+      return default
+    end
+
     logerror(
       "[get_loc_attr] Attr <", attr_path, "> is nil on source <", location,
       "> at time=", time
@@ -131,36 +146,113 @@ end
 
 local InstanceHierarchical = {}
 
-function InstanceHierarchical:new(name)
+function InstanceHierarchical:new(name, id)
 
   local attrs = {
-    name = name,
+    nametmp = name,
+    id = id,
     gb = GroupBuilder(),
-    data = {}
+    data = {
+      ["instance_source"] = false,
+      ["source_index"] = false
+    }
   }
 
-  self.gb:update(Interface.GetOpArg())
-  self.gb:set("childAttrs.type", StringAttribute("instance"))
+  attrs.gb:update(Interface.GetOpArg())
+  attrs.gb:set("childAttrs.type", StringAttribute("instance"))
 
-  function attrs:set_instance_source(instance_source)
-    -- instance_source(str): existing scene graph location
-    self.data.instance_source = instance_source
-    self.gb:set(
-        "childAttrs.geometry.instanceSource",
-        StringAttribute(instance_source)
-    )
-  end
-
-  function attrs:set_arbitrary(attr_path, attr_value)
+  function attrs:add(attr_path, attr_value)
     --[[
     Args:
       attr_path(str): where the attribute should live on the instance.
-        Start at Instance root.
+        Path relative to the instance.
       attr_value(DataAttribute): Katana DataAttribute class
     ]]
-    local buf = {"childAttrs."}
-    table.insert(buf, attr_path)
-    self.gb:set(table.concat(buf), attr_value)
+    self.gb:set(
+        conkat("childAttrs.", attr_path),
+        attr_value
+    )
+  end
+
+  function attrs:set(point_data)
+
+  end
+
+  function attrs:set_instance_source(instance_source, index)
+    --[[
+  Args:
+  instance_source(str): existing scene graph location
+  index(str or int): index on source from which this instance has been
+  computed.
+  ]]
+    self.data.instance_source = instance_source
+    self.data.source_index = index
+    self.gb:set(
+    "childAttrs.geometry.instanceSource",
+    StringAttribute(instance_source)
+    )
+  end
+
+  function attrs:set_proxy(proxy_path)
+
+  end
+
+  function attrs:get_name()
+    --[[
+    Compute the instance location name from the given template (self.nametmp)
+     based on its attributes.
+
+    Returns:
+      str:
+    ]]
+    --
+    local out = self.nametmp
+
+    -- safety check that $id is present
+    if not out:match("%$id") then
+      logerror(
+          "[InstanceHierarchical][get_name] Passed name template <",
+          out,
+          "> doesn't have the mandatory <$id> token."
+      )
+    end
+
+    -- extract the number of digit that must be used for the id
+    local digits = out:match("%$id(%d*)")
+    if not digits then
+      digits = 0
+    end
+
+    -- create the token values
+    local sourcename local sourceindex
+
+    if self.data.instance_source then
+      sourcename = tostring(self.data.instance_source:gsub(".+/", ""))
+    else
+      sourcename = ""
+    end
+
+    if self.data.source_index then
+      sourceindex = tostring(self.data.source_index)
+    else
+      sourceindex = ""
+    end
+
+    -- Assign the tokens to their value
+    -- key is a regex, value must be a string
+    local tokens  = {
+      ["%$id%d*"] = string.format(conkat("%0", digits, "d"), self.id),
+      ["%$sourcename"] = sourcename,
+      ["%$sourceindex"] = sourceindex
+    }
+
+    -- replace token on name template
+    for token, value in pairs(tokens) do
+      out = tostring(out:gsub(token, value))
+    end
+
+    return out
+
   end
 
   function attrs:finalize()
@@ -168,7 +260,7 @@ function InstanceHierarchical:new(name)
     Last method to call once you finish building the Instance.
     ]]
     Interface.CreateChild(
-      self.name,
+      self:get_name(),
       Interface.GetOpType(),
       self.gb:build()
     )
@@ -226,21 +318,36 @@ function pointcloudData:new(location, time)
 
   end
 
-  function attrs:get_common_value_at_index(attr_name, index)
+  function attrs:get_value4pid(attr_name, pid)
     --[[
+    Args:
+      attr_name(str): name for the key to query
+      pid(int): point index: which point to use
     ]]
-    local logmsg
 
-    local attrdata = self.attrs[attr_name]
-
+    local attrdata = self["common"][attr_name]
     if not attrdata then
-      logerror(
-        "[pointcloudData][get_common_value_at_index]",
-        "attr <",
-        attr_name,
-        "> is nil for "
-      ) -- TODO
+      attrdata = self["arbitrary"][attr_name]
+      if not attrdata then
+        logerror(
+          "[pointcloudData][get_value4index]",
+          "Can't find or empty <",
+          attr_name,
+          "> for location <",
+          self.location,
+          ">."
+        )
+      end
     end
+
+    local out = attrdata["values"][pid]
+
+    return out
+
+  end
+
+  function attrs:at_pindex(pindex)
+    return {}
   end
 
   function attrs:convert_rotation2rotationaxis()
@@ -295,20 +402,34 @@ function pointcloudData:new(location, time)
   end
 
   function attrs:build()
+    -- query data on source to build the table
     self:build_common()
     self:build_arbitrary()
     self:build_sources()
+    -- check that the data queried above is valid
     self:validate()
+    -- then modify this data for final use
     self:convert_rotation2rotationaxis()
   end
 
   function attrs:build_sources()
+    --[[
+    Build the <sources> key from the <instancing.data.sources> attribute
+     on source location
+    ]]
 
       -- get the attribute on the pc
     local data_sources = get_loc_attr(
         self.location,
         "instancing.data.sources",
         self.time
+    )
+
+    local data_index_offset = get_loc_attr(
+        self.location,
+        "instancing.settings.index_offset",
+        self.time,
+        0 -- default value if attr not existing
     )
 
     local path
@@ -320,7 +441,7 @@ function pointcloudData:new(location, time)
     for i=0, #data_sources / 3 - 1 do
 
       path = data_sources[3*i+1]
-      iindex = tonumber(data_sources[3*i+2])
+      iindex = tonumber(data_sources[3*i+2]) - data_index_offset
       proxy = data_sources[3*i+3]
 
       -- process special cases here --------------------
@@ -337,6 +458,10 @@ function pointcloudData:new(location, time)
   end
 
   function attrs:build_arbitrary()
+    --[[
+    Build the <arbitrary> key from the <instancing.data.arbitrary>
+      attribute on source location
+    ]]
 
       -- get the attribute on the pc
     local data_arbtr = get_loc_attr(
@@ -377,6 +502,11 @@ function pointcloudData:new(location, time)
   end
 
   function attrs:build_common()
+    --[[
+    Build the <common> key from the <instancing.data.common>
+      attribute on source location.
+    The $points token require a special processing.
+    ]]
 
       -- get the attribute on the pc
     local data_common = get_loc_attr(
@@ -427,7 +557,8 @@ function pointcloudData:new(location, time)
 
   function attrs:validate()
     --[[
-    Verify that self is properly built
+    Verify that self table is properly built
+    TODO see if arbitrary is also needed to be validated
     ]]
 
     -- attr points must always exists
@@ -437,6 +568,30 @@ function pointcloudData:new(location, time)
           self.location,
           ">."
       )
+    end
+
+    -- we need at least one instance source
+    if not self.sources then
+      logerror(
+          "[pointcloudData][validate] No instance sources specified \z
+           for source <",
+          self.location,
+          ">."
+      )
+    end
+
+    -- every instance source need the index to be declared
+    for _, isource_data in ipairs(self.sources) do
+      if not isource_data["index"] then
+        logerror(
+            "[pointcloudData][validate] No index specified for \z
+            instance source <",
+            self.isource_data["path"],
+            "> for source location <",
+            self.location,
+            ">."
+        )
+      end
     end
 
     -- there is no point to have the matrix token + one of the trs so warn
@@ -517,7 +672,7 @@ function pointcloudData:new(location, time)
 
 end
 
-function create_instances()
+local function create_instances()
   --[[
   When Interface at root
   ]]
@@ -526,19 +681,23 @@ function create_instances()
 
   local u_pointcloud_sg = get_user_attr( time, "pointcloud_sg", "$error" )[1]
   local u_instance_name = get_user_attr( time, "instance_name", "$error" )[1]
-  local u_index_offset = get_user_attr( time, "index_offset", 0 )[1]
+
+  logger:info("Started processing source <", u_pointcloud_sg, ">.")
 
   local data = pointcloudData:new(u_pointcloud_sg, time)
   data:build()
-  logger:debug("pc_data = \n", data, "\n")
 
-  local instance
+  logger:debug("data = \n", data, "\n")
 
-  --for i=0, #data.points.values - 1 do
-  --
-  --  instance = InstanceHierarchical:new()
-  --
-  --end
+  local instance local instance_source
+
+  for pindex=0, #data.common.points.values - 1 do
+
+    instance = InstanceHierarchical:new(u_instance_name, pindex + 1)
+    instance:set(data:at_pindex(pindex))
+    instance:finalize()
+
+  end
 
   stime = os.clock() - stime
   logger:info(
@@ -547,7 +706,7 @@ function create_instances()
 
 end
 
-function finalize_instances()
+local function finalize_instances()
   --[[
   When Interface is not at root
 
@@ -568,14 +727,13 @@ function finalize_instances()
 
 end
 
-function run()
+local function run()
   --[[
   First function executed
   ]]
 
-  print(string.rep("\n", 10))
-
   if Interface.AtRoot() then
+    print(string.rep("\n", 10))
     create_instances()
   else
     finalize_instances()

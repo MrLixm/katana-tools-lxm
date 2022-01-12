@@ -37,8 +37,35 @@ pre-defined attributes that must be created on the source location :
 
 ## Setup
 
+#### User Arguments
+
+##### user.pointcloud_sg
+
+Scene graph location of the source (pointcloud)
+
+##### user.instance_name
+
+Naming template used for instances. 3 tokens available :
+
+- `$id` _(mandatory)_: replaced by point number
+  - can be suffixe by a number to add a digit padding, ex: `$id3` can give `008`
+- `$sourcename` : basename of the instance source location used
+- `$sourceindex` : index attribute that was used to determine the instance
+source to pick.
+
 ## About
 
+When the `$rotation` token is declared, it is always converted to individuals
+`$rotationX/Y/Z` ones. This last one also specify the axis which is assumed to be :
+```lua
+axis = {
+    x = {1,0,0},
+    y = {0,1,0},
+    z = {0,0,1}
+}
+```
+`$rotation` attribute is assumed to be in the X-Y-Z order in the case where
+`[2]` = 3
 
 ## Development
 
