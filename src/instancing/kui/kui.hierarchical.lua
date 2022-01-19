@@ -144,6 +144,28 @@ end
   API
 ]]
 
+
+local InstancingMethod = {}
+
+function InstancingMethod:new(point_data)
+
+  local attrs = {
+    pdata = point_data
+  }
+
+  function attrs:build()
+  end
+
+  function attrs:set_name_template()
+    
+  end
+
+
+  return attrs
+
+end
+
+
 local InstanceHierarchical = {}
 
 function InstanceHierarchical:new(name, id)
@@ -681,21 +703,31 @@ local function create_instances()
 
   local u_pointcloud_sg = get_user_attr( time, "pointcloud_sg", "$error" )[1]
   local u_instance_name = get_user_attr( time, "instance_name", "$error" )[1]
+  local u_instance_method = get_user_attr( time, "instance_method", "$error" )[1]
 
+  -- process the source pointcloud
   logger:info("Started processing source <", u_pointcloud_sg, ">.")
 
-  local data = pointcloudData:new(u_pointcloud_sg, time)
-  data:build()
+  local pointdata
+  pointdata = pointcloudData:new(u_pointcloud_sg, time)
+  pointdata:build()
 
-  logger:debug("data = \n", data, "\n")
+  logger:debug("pointdata = \n", pointdata, "\n")
 
-  local instance local instance_source
+  -- start instancing
+  local instance
 
-  for pindex=0, #data.common.points.values - 1 do
+  if u_instance_method == "hierarchical" then
 
-    instance = InstanceHierarchical:new(u_instance_name, pindex + 1)
-    instance:set(data:at_pindex(pindex))
-    instance:finalize()
+    instance = InstancingHierarchical:new(pointdata)
+    instance:set_name_template(u_instance_name)
+    instance:build()
+
+  elseif u_instance_method == "array" then
+
+    instance = InstancingArray:new(pointdata)
+    instance:set_name_template(u_instance_name)
+    instance:build()
 
   end
 

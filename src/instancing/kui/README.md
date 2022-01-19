@@ -14,6 +14,9 @@ solution for instancing based on point-cloud locations.
 The script is able to support a lot of point-cloud configurations thanks to
 pre-defined attributes that must be created on the source location :
 
+- `instancing.settings.index_offset` (int) : value that will be removed to the
+`[1]` attribute of `instancing.data.sources`.
+
 - `instancing.data.sources` (string array) :
   - `[0]` = instance source location.
   - `[1]` = instance source index.
