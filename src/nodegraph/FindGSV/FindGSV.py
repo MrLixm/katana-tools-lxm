@@ -1,11 +1,11 @@
 """
-VERSION = 0.0.1
+VERSION = 0.0.3
 
 Author: Liam Collod
-Last modified: 18/01/2022
+Last modified: 20/01/2022
 
 Script for Foundry's Katana software.
-TODO
+Easily find all local GSV in your Katana scene and their setup.
 
 [HowTo]
 TODO
@@ -13,8 +13,23 @@ TODO
 from collections import OrderedDict
 import sys
 import logging
+from pprint import pformat
+try:
+    from typing import (
+        Optional,
+        List
+    )
+except ImportError:
+    pass
 
 import NodegraphAPI
+
+
+"""____________________________________________________________________________
+
+    SETUP
+
+"""
 
 
 def setup_logging(level):
@@ -53,70 +68,312 @@ Configure how the script behave
 
 [lvl1]
 [key=nodes:value.key](str):  
-    nodeType 
-[key=nodes:value.key:value](str):  
-    parameters path on node that return the GSV name
+    katana node type 
+[key=nodes:value.key:value](dict):  
+    parameters path on node that help build the GSV
+    
+[lvl2]
+[key=nodes:value.key:value.key=name:value](str):  
+    parameters path on node to get the variable name
+[key=nodes:value.key:value.key=values:value](str):  
+    parameters path on node to get the values the variable can take
+ 
 """
-config_dict = {
-    "exclude": ["gafferState"],
+
+CONFIG = {
+    "excluded": ["gafferState"],
     "nodes": {
-        "VariableSwitch": "variableName",
-        "VariableEnabledGroup": "variableName"
+        "VariableSwitch": {
+            "name": "variableName",
+            "values": "patterns"
+        },
+        "VariableEnabledGroup": {
+            "name": "variableName",
+            "values": "pattern"
+        }
+
     }
 }
 
+TIME = NodegraphAPI.GetCurrentTime()
 
-class SceneGSV(list):
 
-    def filter(self, remove_duplicates=True, exclude=None):
-        """
-        Args:
-            remove_duplicates(bool):
-            exclude(list or None):
-        """
-        if not exclude:
-            exclude = list()
+"""____________________________________________________________________________
 
-        if remove_duplicates:
-            self[:] = SceneGSV(OrderedDict.fromkeys(self))
+    API
 
-        for value in list.__iter__(self):
-            if value in exclude:
-                self.remove(value)
+"""
+
+
+class GSVNode(object):
+    """
+    A Katana node that use the GSV feature.
+
+    Args:
+        node(NodegraphAPI.Node):
+    """
+
+    sources = CONFIG.get("nodes", dict())
+
+    def __init__(self, node):
+
+        self.kobj = node
+        self.type = node.getType()
+
+        self.gsv_name = self.get_parameter(
+            param_path=self.sources[self.type]["name"]
+        )[0]
+
+        self.gsv_values = self.get_parameter(
+            param_path=self.sources[self.type]["values"]
+        )
+
+        logger.debug(
+            "[GSVNode][__init__] Finished for node <{}>."
+            "gsv_name={},gsv_values={}"
+            "".format(node, self.gsv_name, self.gsv_values)
+        )
 
         return
+
+    def __str__(self):
+        return "{}:{}".format(self.kobj.getName(), self.type)
+
+    def get_parameter(self, param_path):
+        """
+
+        Args:
+            param_path(str): parameter path on node
+
+        Returns:
+            list: list of values holded by this parameter.
+
+        Notes:
+            TODO support case where given param has multiple nested param
+        """
+
+        param = self.kobj.getParameter(param_path)
+        if not param:
+            raise ValueError(
+                "Parameter <{}> not found on node <{}>"
+                "".format(param_path, self.kobj)
+            )
+
+        output = list()
+
+        if param.getNumChildren() != 0:
+            for index in range(0, param.getNumChildren()):
+                output.append(param.getChildByIndex(index).getValue(TIME))
+        else:
+            output = [param.getValue(TIME)]
+
+        return output
+
+
+class GSVLocal(object):
+    """
+    Represent a GSV as a python object. Allow to know which node is using this
+    gsv and what value it can take.
+
+    Args:
+        name(str): gsv name used in the nodegraph
+        scene(GSVScene): parent scene
+    """
+
+    instances = list()
+    excluded = CONFIG.get("excluded", list())
+
+    def __new__(cls, *args, **kwargs):
+
+        name = kwargs.get("name") or args[0]  # type: str
+        scene = kwargs.get("scene") or args[1]  # type: GSVScene
+
+        # If the variable name is specified as excluded return None
+        if name in cls.excluded:
+            return None
+
+        # try to find if an instance of this class with the same name and same
+        # parented scene already exists.
+        # If yes, return it instead of creating a new one.
+        for instance in cls.instances:
+            if instance.name == name and instance.scene == scene:
+                return instance  # type: GSVLocal
+
+        new_instance = super(GSVLocal, cls).__new__(cls)
+        cls.instances.append(new_instance)
+        return new_instance
+
+    def __init__(self, name, scene):
+        self.name = name
+        self.scene = scene
+        self.nodes = list()  # type: List[GSVNode]
+        self.values = list()
+
+    def _build_nodes(self):
+        """
+        Find all the nodes in the scene that use the current gsv name.
+        """
+
+        self.nodes = list()
+
+        for gsvnode in self.scene.nodes:
+
+            if gsvnode.gsv_name == self.name:
+                self.nodes.append(gsvnode)
+
+            continue
+
+        return
+
+    def _build_values(self):
+        """
+
+        """
+
+        # reset self.value first
+        self.values = list()
+
+        # iterate through all the nodes (think to build it first !)
+        for node in self.nodes:
+
+            # the parameter holding the potential variables value might
+            # have children (ex:VariableSwitch)
+            if node.gsv_values:
+                self.values.extend(map(str, node.gsv_values))
+
+            continue
+
+        # remove duplicates values
+        self.values = list(OrderedDict.fromkeys(self.values))
+
+        return
+
+    def build(self):
+
+        self._build_nodes()
+        self._build_values()
+
+        logger.debug(
+            "[GSVLocal][build] Finished for name=<{}>".format(self.name)
+        )
+        return
+
+    def todict(self):
+
+        if not self.values:
+            logger.warning("[GSVLocal][todict] self.values is empty")
+        if not self.nodes:
+            logger.warning("[GSVLocal][todict] self.nodes is empty")
+
+        return {
+            "name": self.name,
+            "values": self.values,
+            "nodes": map(str, self.nodes)
+        }
+
+
+class GSVScene(object):
+
+    def __init__(self):
+
+        self.nodes = list()  # type: List[GSVNode]
+        self.gsvs = list()  # type: List[GSVLocal]
+
+    def _build_nodes(self):
+        """
+        Find all the nodes in the nodegraph that use the gsv feature.
+        """
+
+        # reset self.nodes first
+        self.nodes = list()
+
+        for node_class, _ in GSVNode.sources.items():
+
+            nodes = NodegraphAPI.GetAllNodesByType(node_class)  # type: list
+            for node in nodes:
+                self.nodes.append(GSVNode(node))
+
+            continue
+
+        logger.debug(
+            "[GSVLocal][_build_nodes] Finished. {} nodes found."
+            "".format(len(self.nodes))
+        )
+
+        return
+
+    def _build_gsvs(self):
+        """
+        From the node list find what gsv is used and build its object.
+        """
+
+        # reset self.gsvs first
+        self.gsvs = list()
+
+        for gsvnode in self.nodes:
+
+            gsv = GSVLocal(gsvnode.gsv_name, self)
+            # gsv might be excluded, so it returns None
+            if not gsv:
+                continue
+            # avoid adding multiples times the same instance
+            if gsv in self.gsvs:
+                continue
+
+            self.gsvs.append(gsv)
+            continue
+
+        # we don't forget to build the gsv object if we want to use its attributes
+        for gsvlocal in self.gsvs:
+            gsvlocal.build()
+
+        logger.debug(
+            "[GSVLocal][_build_gsvs] Finished. {} gsv found."
+            "".format(len(self.gsvs))
+        )
+
+        return
+
+    def build(self):
+
+        self._build_nodes()
+        self._build_gsvs()
+
+        return
+
+    def todict(self):
+        return {"gsvs": list(map(lambda obj: obj.todict(), self.gsvs))}
+
+
+"""____________________________________________________________________________
+
+    USECASE
+
+"""
 
 
 def run():
 
-    scene_gsvs = SceneGSV()
+    gsv_scene = GSVScene()
+    gsv_scene.build()
 
-    for node_class, param_path in config_dict["nodes"].items():
+    logger.info(
+        "GSVScene :\n{}"
+        "".format(pformat(gsv_scene.todict(), indent=4))
+    )
 
-        nodes = NodegraphAPI.GetAllNodesByType(node_class)
+    for gsv in gsv_scene.gsvs:
 
-        for node in nodes:
-
-            value = node.getParameterValue(
-                param_path,
-                NodegraphAPI.GetCurrentTime()
-            )
-
-            if not value:
-
-                logger.error(
-                    "Node <{}> doesn't have param <{}> or returned value is None."
-                    "".format(node, param_path)
+        if gsv.name == "temp":
+            for node in gsv.nodes:
+                NodegraphAPI.SetNodeEdited(
+                    node.kobj,
+                    edited=True,
+                    exclusive=False
                 )
-                continue
-
-            scene_gsvs.append(value)
-            continue
 
         continue
 
-    scene_gsvs.filter(exclude=config_dict["exclude"])
-    logger.info(scene_gsvs)
     return
 
 
