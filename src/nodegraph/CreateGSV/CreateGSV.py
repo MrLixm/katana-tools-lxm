@@ -5,16 +5,16 @@ Author: Liam Collod
 Last modified: 07/01/2022
 
 Script for Foundry's Katana software.
-Add graph state variable based on a dictionnary.
+Add global graph state variable based on a dictionnary.
 
 [HowTo]
-Modify the GSV_DICT to add/delete gsvs, then run the script.
+Modify the GGSV_DICT to add/delete gsvs, then run the script.
 """
 import NodegraphAPI
 
 
 # each key is the gsv name, the value its the list of value the gsv can take.
-GSV_DICT = {
+GGSV_DICT = {
     "shading": ["Final", "Preview", "Grey"],
     "shot": ["A", "B", "C"],
 }
@@ -22,12 +22,12 @@ GSV_DICT = {
 
 def setup_gsvs():
 
-    for gsv_name, gsv_data in GSV_DICT.items():
+    for gsv_name, gsv_data in GGSV_DICT.items():
         create_gsv(name=gsv_name, value_list=gsv_data)
 
     print(
         "[CreateGSV][setup_gsvs] Finished, {} gsv added."
-        "".format(len(GSV_DICT))
+        "".format(len(GGSV_DICT))
     )
     return
 
