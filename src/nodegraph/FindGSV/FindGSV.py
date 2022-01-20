@@ -10,6 +10,7 @@ TODO
 [HowTo]
 TODO
 """
+from collections import OrderedDict
 import sys
 import logging
 
@@ -41,23 +42,58 @@ def setup_logging(level):
 logger = setup_logging(logging.DEBUG)
 
 
-""" variable_nodes_setup(dict)
-List the node that make use of local GSVs.
-key = nodeType : value = parameters path that return the GSV name
+""" config_dict(dict)
+Configure how the script behave
+
+[lvl0]
+[key=exclude:value](list):
+    variable names that will be removed from result
+[key=nodes:value](dict):
+    List the node that make use of local GSVs.
+
+[lvl1]
+[key=nodes:value.key](str):  
+    nodeType 
+[key=nodes:value.key:value](str):  
+    parameters path on node that return the GSV name
 """
-variable_nodes_setup = {
-    "VariableSwitch": "variableName",
-    "VariableEnabledGroup": "variableName"
+config_dict = {
+    "exclude": ["gafferState"],
+    "nodes": {
+        "VariableSwitch": "variableName",
+        "VariableEnabledGroup": "variableName"
+    }
 }
+
+
+class SceneGSV(list):
+
+    def filter(self, remove_duplicates=True, exclude=None):
+        """
+        Args:
+            remove_duplicates(bool):
+            exclude(list or None):
+        """
+        if not exclude:
+            exclude = list()
+
+        if remove_duplicates:
+            self[:] = SceneGSV(OrderedDict.fromkeys(self))
+
+        for value in list.__iter__(self):
+            if value in exclude:
+                self.remove(value)
+
+        return
 
 
 def run():
 
-    variables_list = list()
+    scene_gsvs = SceneGSV()
 
-    for node_type, param_path in variable_nodes_setup.items():
+    for node_class, param_path in config_dict["nodes"].items():
 
-        nodes = NodegraphAPI.GetAllNodesByType(node_type)
+        nodes = NodegraphAPI.GetAllNodesByType(node_class)
 
         for node in nodes:
 
@@ -74,13 +110,13 @@ def run():
                 )
                 continue
 
-            variables_list.append(value)
+            scene_gsvs.append(value)
             continue
 
         continue
 
-
-    logger.info(variables_list)
+    scene_gsvs.filter(exclude=config_dict["exclude"])
+    logger.info(scene_gsvs)
     return
 
 
