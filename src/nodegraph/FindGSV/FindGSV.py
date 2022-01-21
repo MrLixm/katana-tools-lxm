@@ -81,7 +81,20 @@ Configure how the script behave
  
 """
 
-CONFIG =
+CONFIG = {
+    "excluded": ["gafferState"],
+    "nodes": {
+        "VariableSwitch": {
+            "name": "variableName",
+            "values": "patterns"
+        },
+        "VariableEnabledGroup": {
+            "name": "variableName",
+            "values": "pattern"
+        }
+
+    }
+}
 
 TIME = NodegraphAPI.GetCurrentTime()
 
