@@ -1,19 +1,20 @@
 """
-VERSION = 0.0.3
+VERSION = 0.0.5
 
 Author: Liam Collod
-Last modified: 20/01/2022
+Last modified: 21/01/2022
 
-Script for Foundry's Katana software.
+Script for Foundry's Katana software. (Python 2+)
 Easily find all local GSV in your Katana scene and their setup.
 
 [HowTo]
 TODO
 """
+import json
 from collections import OrderedDict
 import sys
 import logging
-from pprint import pformat
+# Python 2 ...
 try:
     from typing import (
         Optional,
@@ -359,7 +360,7 @@ def run():
 
     logger.info(
         "GSVScene :\n{}"
-        "".format(pformat(gsv_scene.todict(), indent=4))
+        "".format(json.dumps(gsv_scene.todict(), indent=4, sort_keys=True))
     )
 
     for gsv in gsv_scene.gsvs:
