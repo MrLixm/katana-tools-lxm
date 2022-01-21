@@ -55,7 +55,7 @@ def setup_logging(level):
     return logger
 
 
-logger = setup_logging(logging.DEBUG)
+logger = setup_logging(logging.INFO)
 
 
 """ config_dict(dict)
@@ -81,20 +81,7 @@ Configure how the script behave
  
 """
 
-CONFIG = {
-    "excluded": ["gafferState"],
-    "nodes": {
-        "VariableSwitch": {
-            "name": "variableName",
-            "values": "patterns"
-        },
-        "VariableEnabledGroup": {
-            "name": "variableName",
-            "values": "pattern"
-        }
-
-    }
-}
+CONFIG =
 
 TIME = NodegraphAPI.GetCurrentTime()
 
@@ -138,7 +125,7 @@ class GSVNode(object):
         return
 
     def __str__(self):
-        return "{}:{}".format(self.kobj.getName(), self.type)
+        return "{}({})".format(self.kobj.getName(), self.type)
 
     def get_parameter(self, param_path):
         """
@@ -274,6 +261,9 @@ class GSVLocal(object):
 
 
 class GSVScene(object):
+    """
+    A group of node associated with an arbitrary number of gsvs.
+    """
 
     def __init__(self):
 
