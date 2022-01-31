@@ -29,3 +29,16 @@ You can create an `user.divider` number parameter on the OpScript node.
 
 You can set it using a variable named `resolution_divider`. This one take priority over the above one.
 
+## Licensing
+
+Apache License 2.0
+
+See [LICENSE.md](./LICENSE.md) for full licence.
+
+- ✅ The licensed material and derivatives may be used for commercial purposes.
+- ✅ The licensed material may be distributed.
+- ✅ The licensed material may be modified.
+- ✅ The licensed material may be used and modified in private.
+- ✅ This license provides an express grant of patent rights from contributors.
+- 📏 A copy of the license and copyright notice must be included with the licensed material.
+- 📏 Changes made to the licensed material must be documented

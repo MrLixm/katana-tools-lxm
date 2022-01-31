@@ -207,3 +207,17 @@ List of nodes in the scene that make use of the local GSV feature.
 ##### `attribute` `(list of GSVLocal)` GSVScene.gsvs
 
 List of local GSV in the scene as `GSVLocal` instances.
+
+## Licensing
+
+Apache License 2.0
+
+See [LICENSE.md](./LICENSE.md) for full licence.
+
+- ✅ The licensed material and derivatives may be used for commercial purposes.
+- ✅ The licensed material may be distributed.
+- ✅ The licensed material may be modified.
+- ✅ The licensed material may be used and modified in private.
+- ✅ This license provides an express grant of patent rights from contributors.
+- 📏 A copy of the license and copyright notice must be included with the licensed material.
+- 📏 Changes made to the licensed material must be documented

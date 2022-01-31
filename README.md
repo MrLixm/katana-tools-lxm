@@ -48,21 +48,24 @@ Else each script should always have a top docstring for documentation.
   
   - [`llloger`](./src/utility/lua_logger)
   
-    A simple lua logging module based on Python's one. 
+    A simple lua logging module based on Python's one.
+  
+  - [`getLogicalUpstreamNodes`](./src/utility/getLogicalUpstreamNodes)
+     
+    Parse scene to return a list of contributing node connected to the
+    given source node.
+
     
 
 ## Licensing
 
-If no LICENSE.md file is clearly specified for a script, OR the _top docstring_ 
-doesn't define a License,
- the script is by default shared under `Creative Commons Attribution
- -NonCommercial-ShareAlike 4.0 International` License.
+See [LICENSE.md](./LICENSE.md) for full licence.
 
-To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/4.0/ .
-
+License should be specified in each directory or in the top of each file else
+the terms specified in the above LICENSE.md file shoudl apply.
 
 
 ## Contact
 
-monsieurlixm@gmail.com
+[monsieurlixm@gmail.com](mailto:monsieurlixm@gmail.com)
 

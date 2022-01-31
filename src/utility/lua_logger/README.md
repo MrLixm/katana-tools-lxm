@@ -135,6 +135,20 @@ To avoid this you can abuse of `logger:debug` during development and then switch
 `LOG_LEVEL`  (or use `logger:set_level()`) to `info` at publish time and make
 sure there is only a few `logger:info` calls.
 
+## Licensing
+
+Apache License 2.0
+
+See [LICENSE.md](./LICENSE.md) for full licence.
+
+- ✅ The licensed material and derivatives may be used for commercial purposes.
+- ✅ The licensed material may be distributed.
+- ✅ The licensed material may be modified.
+- ✅ The licensed material may be used and modified in private.
+- ✅ This license provides an express grant of patent rights from contributors.
+- 📏 A copy of the license and copyright notice must be included with the licensed material.
+- 📏 Changes made to the licensed material must be documented
+
 ## Development
 
 ### Using outside of Katana
