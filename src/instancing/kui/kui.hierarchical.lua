@@ -1,6 +1,8 @@
 --[[
 todo
+version=0.0.2
 ]]
+
 
 local logging = require "lllogger"
 local logger = logging:new("kui.hierarchical")
@@ -12,6 +14,9 @@ logger.formatting:set_tbl_display_functions(false)
 ]]
 
 local function conkat(...)
+  --[[
+  The loop-safe string concatenation method.
+  ]]
   local buf = {}
   for i=1, select("#",...) do
     buf[ #buf + 1 ] = tostring(select(i,...))
@@ -24,7 +29,8 @@ local function logerror(...)
   log an error first then stop the script by raising a lua error()
 
   Args:
-    ...(any): message to log, composed of multiple arguments
+    ...(any): message to log, composed of multiple arguments that will be
+      converted to string using tostring()
   ]]
   local logmsg = conkat(...)
   logger:error(logmsg)
@@ -62,13 +68,13 @@ local function get_attribute_class(kattribute)
   end
 end
 
-local function get_user_attr(frame, name, default_value)
+local function get_user_attr(time, name, default_value)
     --[[
     Return an OpScipt user attribute.
     If not found return the default_value. (unless asked to raise an error)
 
     Args:
-        frame(int): current frame (=time if you will)
+        time(int): frame the attribute must be queried at
         name(str): attribute location (don't need the <user.>)
         default_value(any): value to return if user attr not found
           you can use the special token <$error> to raise an error instead
@@ -78,7 +84,7 @@ local function get_user_attr(frame, name, default_value)
     local argvalue = Interface.GetOpArg(conkat("user.",name))
 
     if argvalue then
-      return argvalue:getNearestSample(frame)
+      return argvalue:getNearestSample(time)
 
     elseif default_value=="$error" then
       logerror("[get_user_attr] user attribute <",name,"> not found.")
@@ -106,7 +112,6 @@ local function get_loc_attr(location, attr_path, time, default)
     table: table of 2: {value table, table representing the original data type}
   ]]
 
-  local logmsg
   local lattr = Interface.GetAttr(attr_path, location)
 
   if not lattr then
@@ -121,7 +126,6 @@ local function get_loc_attr(location, attr_path, time, default)
 
   end
 
-  local lattr_type = get_attribute_class(lattr)
   lattr = lattr:getNearestSample(time)
 
   if not lattr then
@@ -134,8 +138,10 @@ local function get_loc_attr(location, attr_path, time, default)
       "[get_loc_attr] Attr <", attr_path, "> is nil on source <", location,
       "> at time=", time
     )
+
   end
 
+  local lattr_type = get_attribute_class(lattr)
   return lattr, lattr_type
 
 end
@@ -152,12 +158,13 @@ function InstancingMethod:new(point_data)
   local attrs = {
     pdata = point_data
   }
-
+  -- TODO what is this even useful for ??
   function attrs:build()
+    logerror("[InstancingMethod][build] NotImplementedError")
   end
 
   function attrs:set_name_template()
-    
+    logerror("[InstancingMethod][set_name_template] NotImplementedError")
   end
 
 
@@ -169,6 +176,23 @@ end
 local InstanceHierarchical = {}
 
 function InstanceHierarchical:new(name, id)
+  --[[
+  A single hierarchical instance location represented as a class.
+
+  Args:
+    name(str): name template to give to the instance (with tokens)
+    id(int): unique identifier for the instance, usually the loop current index
+
+  Attributes:
+    data(table):
+      store attributes progressively set on the instance to
+      be reused at build time for the instance name.
+    gb(GroupBuilder):
+    id(int):
+      unique identifier for the instance, usually the loop current index
+    nametmp(str):
+      name template to give to the instance (so with tokens)
+  ]]
 
   local attrs = {
     nametmp = name,
@@ -188,7 +212,7 @@ function InstanceHierarchical:new(name, id)
     Args:
       attr_path(str): where the attribute should live on the instance.
         Path relative to the instance.
-      attr_value(DataAttribute): Katana DataAttribute class
+      attr_value(DataAttribute): Katana DataAttribute instance with the data
     ]]
     self.gb:set(
         conkat("childAttrs.", attr_path),
@@ -197,7 +221,7 @@ function InstanceHierarchical:new(name, id)
   end
 
   function attrs:set(point_data)
-
+    -- TODO ?
   end
 
   function attrs:set_instance_source(instance_source, index)
@@ -209,14 +233,14 @@ function InstanceHierarchical:new(name, id)
   ]]
     self.data.instance_source = instance_source
     self.data.source_index = index
-    self.gb:set(
-    "childAttrs.geometry.instanceSource",
-    StringAttribute(instance_source)
+    self.add(
+      "geometry.instanceSource",
+      StringAttribute(instance_source)
     )
   end
 
   function attrs:set_proxy(proxy_path)
-
+    -- TODO, might not be implemented
   end
 
   function attrs:get_name()
@@ -225,7 +249,7 @@ function InstanceHierarchical:new(name, id)
      based on its attributes.
 
     Returns:
-      str:
+      str: final instance name
     ]]
     --
     local out = self.nametmp
@@ -297,6 +321,14 @@ function pointcloudData:new(location, time)
   --[[
   Args:
     location(str): scene graph location of the pointcloud
+    time(int): time at which attributes must be queried
+
+  Attributes:
+    time(int):
+    location(str):
+    common(table): key are supported token value (+$)
+    sources:
+    arbitrary:
   ]]
 
   local attrs = {
@@ -319,6 +351,8 @@ function pointcloudData:new(location, time)
 
   function attrs:check_token(token)
     --[[
+    Check if the given token is a valid token and if so return it without the $
+
     Args:
       token(str): string that should start with <$>
       source(str): scene graph location where this token is stored
@@ -369,6 +403,7 @@ function pointcloudData:new(location, time)
   end
 
   function attrs:at_pindex(pindex)
+    -- todo
     return {}
   end
 

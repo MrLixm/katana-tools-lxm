@@ -36,17 +36,21 @@ pre-defined attributes that must be created on the source location :
   - `[1]` = target attribute path realtive to the instance.
   - `[2]` = value grouping : how much value belongs to an individual point.
   - `[3]` = value multiplier : quick way to multiply values.
-  
+
+#### common tokens
+
+- 
+
 
 ## Setup
 
 #### User Arguments
 
-##### user.pointcloud_sg
+##### `user.pointcloud_sg`
 
 Scene graph location of the source (pointcloud)
 
-##### user.instance_name
+##### `user.instance_name`
 
 Naming template used for instances. 3 tokens available :
 
@@ -59,7 +63,8 @@ source to pick.
 ## About
 
 When the `$rotation` token is declared, it is always converted to individuals
-`$rotationX/Y/Z` ones. This last one also specify the axis which is assumed to be :
+`$rotationX/Y/Z` attributes. These new attributes also specify the axis which
+is assumed to be by default :
 ```lua
 axis = {
     x = {1,0,0},
@@ -68,7 +73,7 @@ axis = {
 }
 ```
 `$rotation` attribute is assumed to be in the X-Y-Z order in the case where
-`[2]` = 3
+value grouping (`[2]`) = 3
 
 ## Development
 
