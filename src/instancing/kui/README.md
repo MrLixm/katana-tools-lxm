@@ -33,9 +33,16 @@ pre-defined attributes that must be created on the source location :
     Only you know why this attribute will be useful, they will just be transfered
     to the instance for whatever you need them for.
   - `[0]` = attribute path relative to the source.
-  - `[1]` = target attribute path realtive to the instance.
+  
+  - `[1]` = target attribute path relative to the instance.
+  
   - `[2]` = value grouping : how much value belongs to an individual point.
+  
   - `[3]` = value multiplier : quick way to multiply values.
+  
+  - `[4]` = additional attributes that must be created on instance. Defined as a Lua table like `{"target path"=DataAttribute(value)}`
+  
+    ⚠ This parameter has a potential security flaw as everything inside is compiled to Lua code using `loadstring("return "..content)`
 
 #### common tokens
 
@@ -122,9 +129,10 @@ Here is a look at what some attributes looks like
     "indexN"={
       ["path(str)"]="scene graph location of the instance source",
       ["index(num)"]="index it's correspond to on the pointCloud (offset has been applied), same as the parent key.",
-      ["proxy(Optional[str])"]="proxy geometry location"
+      ["proxy(Optional[str])"]="proxy geometry location",
+      ["attrs(table)"] =  
     }
-    1: ...
+	...
   }
 ```
 #### arbitrary
@@ -137,6 +145,7 @@ Here is a look at what some attributes looks like
       ["values(table)"]= "table of value gathered on the source using the above path",
       ["type(DataAttribute)"]= "DataAttribute class not instanced that correspond to values",
       ["processed(DataAttribute)"] = "DataAttribute class INSTANCED that correspond to <values> * <multiplier>"
+      ["additional(str)"]= "lua table stored in a string that contains aditional attributes to create on instance"
     }
     ...
   }

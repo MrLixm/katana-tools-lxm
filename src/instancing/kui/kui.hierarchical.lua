@@ -1,6 +1,6 @@
 --[[
 todo
-version=0.0.3
+version=0.0.5
 ]]
 
 
@@ -160,21 +160,45 @@ local function get_loc_attr(location, attr_path, time, default)
 end
 
 --[[ __________________________________________________________________________
+  CONSTANTS
+]]
+
+-- // Used by InstanceHierarchical
+-- key is the token to query and value is the target attribute path
+-- if the token doesnt have any value on point_data it will not be added.
+-- order is important
+local token_target = {
+  { ["token"]="translation", ["target"]="xform.group0.translate" },
+  -- if the pdata was validated, we for sure have rotationX/Y/Z
+  { ["token"]="rotationZ", ["target"]="xform.group0.rotateZ" },
+  { ["token"]="rotationY", ["target"] = "xform.group0.rotateY" },
+  { ["token"]="rotationX", ["target"] = "xform.group0.rotateX" },
+  { ["token"]="scale", ["target"]="xform.group0.scale" },
+  { ["token"]="matrix", ["target"]="xform.group0.matrix" },
+}
+
+-- // Used by PointCloudData
+-- just use to force use of DoubleAttribute on this ones.
+local transform_tokens = {
+  ["scale"]=true,
+  ["rotation"]=true,
+  ["translation"]=true,
+  ["matrix"]=true,
+  ["rotationZ"]=true,
+  ["rotationY"]=true,
+  ["rotationX"]=true,
+}
+
+-- // used by PointCloudData
+-- excpected number of value per different attribute
+local common_grouping = 4
+local arbitrary_grouping = 5
+
+
+--[[ __________________________________________________________________________
   API
 ]]
 
--- Used by InstanceHierarchical
--- key is the token to query and value is the target attribute path
--- if the token doesnt have any value on point_data it will not be added.
-local token_target = {
-  ["scale"]="xform.group0.scale",
-  ["translation"]="xform.group0.translate",
-  ["matrix"]="xform.group0.matrix",
-  -- if the pdata was validated, we for sure have rotationX/Y/Z
-  ["rotationX"]="xform.group0.rotateX",
-  ["rotationY"]="xform.group0.rotateY",
-  ["rotationZ"]="xform.group0.rotateZ"
-}
 
 local InstanceHierarchical = {}
 function InstanceHierarchical:new(name, id)
@@ -233,7 +257,7 @@ function InstanceHierarchical:new(name, id)
 
   function attrs:build_from_pdata(point_data)
     --[[
-    Convenient method to build the instance from a pointCloudData instance
+    Convenient method to build the instance from a PointCloudData instance
     at the current point index (id attribute).
     ]]
 
@@ -249,12 +273,17 @@ function InstanceHierarchical:new(name, id)
     self:set_proxy(isrc_data["proxy"])
 
     -- 2. PROCESS COMMON ATTRIBUTES
-    for token, target in pairs(token_target) do
+    for _, tt in ipairs(token_target) do
       -- add() handle nil value by himself
-      self:add(target, point_data:get_attr_value(token, self.id))
+      self:add(tt["target"], point_data:get_attr_value(tt["token"], self.id))
     end
     -- 3. PROCESS ARBITRARY ATTRIBUTES
-    for target, _ in pairs(point_data["arbitrary"]) do
+    for target, arbtr_data in pairs(point_data["arbitrary"]) do
+      -- we only use arbtr_data for the <additional> key yet so we can do this
+      arbtr_data = arbtr_data["additional"]  -- type: table
+      for addit_target, addit_value in pairs(arbtr_data) do
+        self:add(addit_target, addit_value)
+      end
       -- add() handle nil value by himself
       self:add(target,  point_data:get_attr_value(target, self.id))
     end
@@ -356,8 +385,8 @@ function InstanceHierarchical:new(name, id)
 
 end
 
-local pointcloudData = {}
-function pointcloudData:new(location, time)
+local PointCloudData = {}
+function PointCloudData:new(location, time)
   --[[
   Represents attribute data holded on a pointcloud location. (or actually
   any locations with the supported <instancing> attributes).
@@ -452,7 +481,7 @@ function pointcloudData:new(location, time)
       self.__attrdata = self["arbitrary"][attr_name]
       if self.__attrdata == nil then
         logerror(
-          "[pointcloudData][get_value4index]",
+          "[PointCloudData][get_value4index]",
           "Can't find attribute <",
           attr_name,
           "> on instance for location <",
@@ -690,21 +719,29 @@ function pointcloudData:new(location, time)
     local path
     local pcvalues
     local value_type
+    local additional
     self["arbitrary"] = {}
 
     -- start building the common key ------------------------------------------
-    for i=0, #data_arbtr / 4 - 1 do
+    for i=0, #data_arbtr / arbitrary_grouping - 1 do
 
-      path = data_arbtr[4*i+1]
-      target = data_arbtr[4*i+2]
-      grouping = tonumber(data_arbtr[4*i+3])
-      multiplier = tonumber(data_arbtr[4*i+4])
+      path = data_arbtr[arbitrary_grouping*i+1]
+      target = data_arbtr[arbitrary_grouping*i+2]
+      grouping = tonumber(data_arbtr[arbitrary_grouping*i+3])
+      multiplier = tonumber(data_arbtr[arbitrary_grouping*i+4])
+      additional = data_arbtr[arbitrary_grouping*i+5]
+      additional = assert(
+          loadstring(conkat("return ", additional)),
+          "Error while converting <instancing.data.arbitrary> column 5 to Lua."
+      )
+      additional = additional()  -- this should be a table
       pcvalues, value_type = get_loc_attr(self.location, path, self.time)
 
       -- process special cases here --------------------
       -- none yet
 
       self["arbitrary"][target] = {
+        ["additional"] = additional,
         ["path"] = path,
         ["grouping"] = grouping,
         ["multiplier"] = multiplier,
@@ -746,12 +783,12 @@ function pointcloudData:new(location, time)
     local pointsvalue = {}
 
     -- start building the common key ------------------------------------------
-    for i=0, #data_common / 4 - 1 do
+    for i=0, #data_common / common_grouping - 1 do
 
-      path = data_common[4*i+1]
-      token = self:check_token(data_common[4*i+2]) -- return without the "$" !
-      grouping = tonumber(data_common[4*i+3])
-      multiplier = tonumber(data_common[4*i+4])
+      path = data_common[common_grouping*i+1]
+      token = self:check_token(data_common[common_grouping*i+2]) -- return without the "$" !
+      grouping = tonumber(data_common[common_grouping*i+3])
+      multiplier = tonumber(data_common[common_grouping*i+4])
       pcvalues, value_type = get_loc_attr(self.location, path, self.time)
 
       -- process special cases here --------------------
@@ -763,15 +800,19 @@ function pointcloudData:new(location, time)
         pcvalues = pointsvalue
         grouping = 1
       end
+      -- force transform token to use doubles
+      if transform_tokens[token] ~= nil then
+        value_type = DoubleAttribute
+      end
 
-      self["common"][token] = {
-        ["path"] = path,
-        ["grouping"] = grouping,
-        ["multiplier"] = multiplier,
-        -- value should always be a numerical index table
-        ["values"] = pcvalues,
-        ["type"] = value_type
-      }
+    self["common"][token] = {
+    ["path"] = path,
+    ["grouping"] = grouping,
+    ["multiplier"] = multiplier,
+    -- value should always be a numerical index table
+    ["values"] = pcvalues,
+    ["type"] = value_type
+    }
 
     end
 
@@ -789,7 +830,7 @@ function pointcloudData:new(location, time)
     -- attr points must always exists
     if not self.common.points then
       logerror(
-          "[pointcloudData][validate] Missing token $points on source <",
+          "[PointCloudData][validate] Missing token $points on source <",
           self.location,
           ">."
       )
@@ -798,7 +839,7 @@ function pointcloudData:new(location, time)
     -- we need at least one instance source
     if not self.sources then
       logerror(
-          "[pointcloudData][validate] No instance sources specified \z
+          "[PointCloudData][validate] No instance sources specified \z
            for source <",
           self.location,
           ">."
@@ -809,7 +850,7 @@ function pointcloudData:new(location, time)
     for _, isource_data in ipairs(self.sources) do
       if not isource_data["index"] then
         logerror(
-            "[pointcloudData][validate] No index specified for \z
+            "[PointCloudData][validate] No index specified for \z
             instance source <",
             self.isource_data["path"],
             "> for source location <",
@@ -828,7 +869,7 @@ function pointcloudData:new(location, time)
         self.common.rotationX
     ) then
       logger:warning(
-          "[pointcloudData][validate] Source <", self.location,
+          "[PointCloudData][validate] Source <", self.location,
           "> declare a $matrix token but also one of the trs. In that case \z
            $matrix take the priority."
       )
@@ -852,7 +893,7 @@ function pointcloudData:new(location, time)
           self.common.rotationZ
       ) then
         logerror(
-          "[pointcloudData][validate] Source <", self.location,
+          "[PointCloudData][validate] Source <", self.location,
           "> doesn't have all the <rotationX/Y/Z> tokens declared \z
           (but declare currently at least one)."
         )
@@ -866,7 +907,7 @@ function pointcloudData:new(location, time)
         self.common.rotationZ
     ) then
       logger:warning(
-          "[pointcloudData][validate] Source <", self.location,
+          "[PointCloudData][validate] Source <", self.location,
           "> declare a rotation token but also one of the $rotationX/Y/Z.\z
            In that case $rotation take the priority."
       )
@@ -882,7 +923,7 @@ function pointcloudData:new(location, time)
         attrlength = #(attrdata.values) / attrdata.grouping
         if attrlength ~= pointsn then
           logerror(
-          "[pointcloudData][validate] Common attribute <", attrname,
+          "[PointCloudData][validate] Common attribute <", attrname,
           "> as an odd number of values : ", tostring(#(attrdata.values)),
           " / ", tostring(attrdata.grouping), " = ", attrlength,
           " while $points=", pointsn
@@ -932,7 +973,7 @@ function pointcloudData:new(location, time)
     end
 
     stime = os.clock() - stime
-    logger:debug("[pointcloudData] Finished in ",stime,"s for pointcloud <",self.location,">.")
+    logger:debug("[PointCloudData] Finished in ",stime,"s for pointcloud <",self.location,">.")
 
   end
 
@@ -946,13 +987,13 @@ local InstancingMethod = {}
 function InstancingMethod:new(point_data)
   --[[
   Base class to implement support for an instancing method.
-  Made the link between pointcloudData and instance creation.
+  Made the link between PointCloudData and instance creation.
 
   Args:
-    point_data(pointcloudData) : pointcloudData instance that has been built.
+    point_data(PointCloudData) : PointCloudData instance that has been built.
 
   Attributes:
-    pdata(pointcloudData): pointcloudData instance
+    pdata(PointCloudData): PointCloudData instance
     name_tmp(str): name to give to the instances, with tokens.
   ]]
 
@@ -981,7 +1022,7 @@ local function InstancingHierarchical(point_data)
   This has a performance cost but we don't care as this will be runned one time.
 
   Args:
-    point_data(pointcloudData) : pointcloudData instance that has been built.
+    point_data(PointCloudData) : PointCloudData instance that has been built.
   ]]
   local inner = InstancingMethod:new(point_data)
 
@@ -1008,7 +1049,7 @@ local function InstancingArray(point_data)
   This has a performance cost but we don't care as this will be runned one time.
 
   Args:
-    point_data(pointcloudData) : pointcloudData instance that has been built.
+    point_data(PointCloudData) : PointCloudData instance that has been built.
   ]]
   logerror("Method array not supported yet !") -- TODO
   local inner = InstancingMethod:new(point_data)
@@ -1031,7 +1072,7 @@ local function create_instances()
   -- process the source pointcloud
   logger:info("Started processing source <", u_pointcloud_sg, ">.")
   local pointdata
-  pointdata = pointcloudData:new(u_pointcloud_sg, time)
+  pointdata = PointCloudData:new(u_pointcloud_sg, time)
   pointdata:build()
   logger:debug("pointdata = \n", pointdata, "\n")
 
