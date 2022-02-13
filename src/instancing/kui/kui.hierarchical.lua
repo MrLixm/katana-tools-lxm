@@ -1,6 +1,6 @@
 --[[
 todo
-version=0.0.2
+version=0.0.3
 ]]
 
 
@@ -8,6 +8,7 @@ local logging = require "lllogger"
 local logger = logging:new("kui.hierarchical")
 logger:set_level("debug")
 logger.formatting:set_tbl_display_functions(false)
+logger.formatting:set_str_display_quotes(true)
 
 --[[ __________________________________________________________________________
   LUA UTILITIES
@@ -51,6 +52,7 @@ end
 ]]
 
 local OPARG = Interface.GetOpArg()
+
 
 local function get_attribute_class(kattribute)
   --[[
@@ -136,6 +138,8 @@ local function get_loc_attr(location, attr_path, time, default)
 
   end
 
+  local lattr_type = get_attribute_class(lattr)
+
   lattr = lattr:getNearestSample(time)
 
   if not lattr then
@@ -151,88 +155,13 @@ local function get_loc_attr(location, attr_path, time, default)
 
   end
 
-  return lattr, get_attribute_class(lattr)
+  return lattr, lattr_type
 
 end
 
 --[[ __________________________________________________________________________
   API
 ]]
-
-
-local InstancingMethod = {}
-function InstancingMethod:new(point_data)
-  --[[
-  Base class to implement support for an instancing method.
-  Made the link between pointcloudData and instance creation.
-
-  Args:
-    point_data(pointcloudData) : pointcloudData instance that has been built.
-
-  Attributes:
-    pdata(pointcloudData): pointcloudData instance
-    name_tmp(str): name to give to the instances, with tokens.
-  ]]
-
-  local attrs = {
-    pdata = point_data,
-    name_tmp = false,
-  }
-
-  function attrs:build()
-    logerror("[InstancingMethod][build] NotImplementedError")
-  end
-
-  function attrs:set_name_template(name)
-    self["name_tmp"] = name
-  end
-
-
-  return attrs
-
-end
-
-local function InstancingHierarchical(point_data)
-  --[[
-
-  Subclassing InstancingMethod.
-  This has a performance cost but we don't care as this will be runned one time.
-
-  Args:
-    point_data(pointcloudData) : pointcloudData instance that has been built.
-  ]]
-  local inner = InstancingMethod:new(point_data)
-
-  -- override build()
-  function inner:build()
-
-    local instance
-    -- /!\ perfs
-    for pid=0, self.pdata.point_count - 1 do
-      instance = InstanceHierarchical:new(self.name_tmp, pid)
-      instance:build_from_pdata(point_data)
-      instance:finalize()
-    end
-
-  end
-
-  return inner
-end
-
-local function InstancingArray(point_data)
-  --[[
-
-  Subclassing InstancingMethod.
-  This has a performance cost but we don't care as this will be runned one time.
-
-  Args:
-    point_data(pointcloudData) : pointcloudData instance that has been built.
-  ]]
-  logerror("Method array not supported yet !") -- TODO
-  local inner = InstancingMethod:new(point_data)
-  return inner
-end
-
 
 -- Used by InstanceHierarchical
 -- key is the token to query and value is the target attribute path
@@ -284,7 +213,6 @@ function InstanceHierarchical:new(name, id)
   }
 
   attrs.gb:update(OPARG)
-  attrs.gb:set("childAttrs.type", StringAttribute("instance"))
 
   function attrs:add(attr_path, attr_value)
     --[[
@@ -309,23 +237,27 @@ function InstanceHierarchical:new(name, id)
     at the current point index (id attribute).
     ]]
 
-    -- 1. PROCESS COMMON ATTRIBUTES
-    for token, target in pairs(token_target) do
-      -- add() handle nil value by himself
-      self:add(target, point_data:get_attr_value(token, self.id))
-    end
-    -- 2. PROCESS ARBITRARY ATTRIBUTES
-    for target, _ in pairs(point_data["arbitrary"]) do
-      -- add() handle nil value by himself
-      self:add(target,  point_data:get_attr_value(target, self.id))
-    end
-    -- 3. PROCESS INSTANCE SOURCE SETUP
+    -- 1. PROCESS INSTANCE SOURCE SETUP
+    -- had to be first for childAttrs to not override previously set
     local isrc_data = point_data:get_instance_source_data(self.id)
+    -- must really be first
+    self.gb:set("childAttrs", isrc_data["attrs"])
     self:set_instance_source(
         isrc_data["path"],
         isrc_data["index"]
     )
     self:set_proxy(isrc_data["proxy"])
+
+    -- 2. PROCESS COMMON ATTRIBUTES
+    for token, target in pairs(token_target) do
+      -- add() handle nil value by himself
+      self:add(target, point_data:get_attr_value(token, self.id))
+    end
+    -- 3. PROCESS ARBITRARY ATTRIBUTES
+    for target, _ in pairs(point_data["arbitrary"]) do
+      -- add() handle nil value by himself
+      self:add(target,  point_data:get_attr_value(target, self.id))
+    end
 
     -- end function
   end
@@ -339,7 +271,7 @@ function InstanceHierarchical:new(name, id)
   ]]
     self.data.instance_source = instance_source
     self.data.source_index = index
-    self.add(
+    self:add(
       "geometry.instanceSource",
       StringAttribute(instance_source)
     )
@@ -412,6 +344,7 @@ function InstanceHierarchical:new(name, id)
     --[[
     Last method to call once you finish building the Instance.
     ]]
+    self:add("type", StringAttribute("instance"))
     Interface.CreateChild(
       self:get_name(),
       Interface.GetOpType(),
@@ -538,6 +471,18 @@ function pointcloudData:new(location, time)
 
   end
 
+  function attrs:get_index_at_point(pindex)
+    --[[
+    Return the index used at the given point.
+
+    Returns:
+      num:
+    ]]
+    local index = self:get_attr_value("index", pindex)  -- DataAttribute
+    index = index:getValue()
+    return index
+  end
+
   function attrs:get_attr_value(attr_name, pindex)
     --[[
     Return the value for the given attribute.
@@ -555,13 +500,14 @@ function pointcloudData:new(location, time)
 
     Returns:
       DataAttribute or nil:
-        DataAttribute instance or nil if <attr_name> empty or not found.
+        DataAttribute instance or nil if <attr_name> is empty (=false).
     ]]
 
 
     -- this set self.__attrdata
     self:__get_attr_data(attr_name)
     if not self.__attrdata then
+      --logger:debug("attr_name<", attr_name, "> is not initialized. (false)")
       return nil
     end
 
@@ -571,8 +517,8 @@ function pointcloudData:new(location, time)
     else
       self.__buffer2 = {}
       -- grouping usually vary between 1 and 16(matrices), so small loop.
-      for i in self.__attrdata["grouping"] do
-        self.__buffer2[#self.__buffer2 + 1] =  self.__attrdata["processed"][pindex + i]
+      for i=1, self.__attrdata["grouping"] do
+        self.__buffer2[#self.__buffer2 + 1] = self.__attrdata["processed"][self.__attrdata["grouping"] * pindex + i]
       end
     end
 
@@ -593,10 +539,20 @@ function pointcloudData:new(location, time)
       pindex(int): point index: which point to use. !! starts at 0 !!
 
     Returns:
-      table or nil: nil if the <soruces> attribute doesn't have the
-        corresponding index.
+      table:
     ]]
-    return self["sources"][self:get_attr_value("index", pindex)]
+    local index = self:get_index_at_point(pindex)
+    local out = self["sources"][tostring(index)]
+    if out == nil then
+      logerror(
+        "An error occured when getting index for current point <",
+        pindex,
+        ">. Corresponding index found was <",
+        index,
+        "> and return nil on self['sources']."
+      )
+    end
+    return out
 
   end
 
@@ -682,7 +638,7 @@ function pointcloudData:new(location, time)
         self.time
     )
 
-    local index = get_loc_attr(
+    local index_offset = get_loc_attr(
         self.location,
         "instancing.settings.index_offset",
         self.time,
@@ -691,13 +647,14 @@ function pointcloudData:new(location, time)
 
     local path
     local proxy
+    local index
     self["sources"] = {}
 
     -- start building the sources key ------------------------------------------
     for i=0, #data_sources / 3 - 1 do
 
       path = data_sources[3*i+1]
-      index = tonumber(data_sources[3*i+2]) - index
+      index = tonumber(data_sources[3*i+2]) - index_offset
       proxy = data_sources[3*i+3]
 
       -- process special cases here --------------------
@@ -707,7 +664,8 @@ function pointcloudData:new(location, time)
         ["path"] = path,
         -- even if the key already use the index, respecify it here as num
         ["index"] = index,
-        ["proxy"] = proxy
+        ["proxy"] = proxy,
+        ["attrs"] = Interface.GetAttr("", path)
       }
 
     end
@@ -949,36 +907,115 @@ function pointcloudData:new(location, time)
   Must be executed after <validate>
   ]]
 
-  -- rebuild rotation attributes
-  self:convert_rotation2rotationaxis()
+    -- rebuild rotation attributes
+    self:convert_rotation2rotationaxis()
 
-  local value
-  local stime = os.clock()
+    local value
+    local stime = os.clock()
 
-  -- we build the <processed> key
-  for _, source in pairs({"common", "arbitrary"}) do
+    -- we build the <processed> key
+    for _, source in pairs({"common", "arbitrary"}) do
 
-    for token, attr_data in pairs(self[source]) do
+      for token, attr_data in pairs(self[source]) do
+        -- attr_data can be false and not be built
+        if attr_data then
+          value = attr_data["values"]
+          for i, v in ipairs(value) do
+            value[i] = v * attr_data["multiplier"]
+          end
+          -- create the new <processed> key.
+          self[source][token]["processed"] = value
+        end
 
-      value = attr_data["values"]
-      for i, v in ipairs(value) do
-        value[i] = v * attr_data["multiplier"]
       end
-      -- create the new <processed> key.
-      self[source][token]["processed"] = value
 
     end
 
+    stime = os.clock() - stime
+    logger:debug("[pointcloudData] Finished in ",stime,"s for pointcloud <",self.location,">.")
+
   end
-
-  stime = os.clock() - stime
-  logger:debug("Finished in ",stime,"s for pointcloud <",self.location,">.")
-
-end
 
   return attrs
 
 end
+
+-- InstancingMethod -----------------------------------------------------------
+
+local InstancingMethod = {}
+function InstancingMethod:new(point_data)
+  --[[
+  Base class to implement support for an instancing method.
+  Made the link between pointcloudData and instance creation.
+
+  Args:
+    point_data(pointcloudData) : pointcloudData instance that has been built.
+
+  Attributes:
+    pdata(pointcloudData): pointcloudData instance
+    name_tmp(str): name to give to the instances, with tokens.
+  ]]
+
+  local attrs = {
+    pdata = point_data,
+    name_tmp = false,
+  }
+
+  function attrs:build()
+    logerror("[InstancingMethod][build] NotImplementedError")
+  end
+
+  function attrs:set_name_template(name)
+    self["name_tmp"] = name
+  end
+
+
+  return attrs
+
+end
+
+local function InstancingHierarchical(point_data)
+  --[[
+
+  Subclassing InstancingMethod.
+  This has a performance cost but we don't care as this will be runned one time.
+
+  Args:
+    point_data(pointcloudData) : pointcloudData instance that has been built.
+  ]]
+  local inner = InstancingMethod:new(point_data)
+
+  -- override build()
+  function inner:build()
+
+    local instance
+    -- /!\ perfs
+    for pid=0, self.pdata.point_count - 1 do
+      instance = InstanceHierarchical:new(self.name_tmp, pid)
+      instance:build_from_pdata(point_data)
+      instance:finalize()
+    end
+
+  end
+
+  return inner
+end
+
+local function InstancingArray(point_data)
+  --[[
+
+  Subclassing InstancingMethod.
+  This has a performance cost but we don't care as this will be runned one time.
+
+  Args:
+    point_data(pointcloudData) : pointcloudData instance that has been built.
+  ]]
+  logerror("Method array not supported yet !") -- TODO
+  local inner = InstancingMethod:new(point_data)
+  return inner
+end
+
+-- processes ------------------------------------------------------------------
 
 local function create_instances()
   --[[
@@ -1003,13 +1040,13 @@ local function create_instances()
 
   if u_instance_method == "hierarchical" then
 
-    instance = InstancingHierarchical:new(pointdata)
+    instance = InstancingHierarchical(pointdata)
     instance:set_name_template(u_instance_name)
     instance:build()
 
   elseif u_instance_method == "array" then
 
-    instance = InstancingArray:new(pointdata)
+    instance = InstancingArray(pointdata)
     instance:set_name_template(u_instance_name)
     instance:build()
 
@@ -1029,7 +1066,8 @@ local function finalize_instances()
   the number of instances (so can be thousands !)
   ]]
 
-  local childAttrs = Interface.GetOpArg("childAttrs")
+  -- attributes created for a single instance
+  local childAttrs = Interface.GetOpArg("childAttrs")  -- type: GroupAttribute
 
   for i=0, childAttrs:getNumberOfChildren() - 1 do
 
@@ -1039,8 +1077,6 @@ local function finalize_instances()
     )
 
   end
-
-  logger:debug("Finished for <", childAttrs, ">.")  -- TODO remove this when code finished
 
 end
 
