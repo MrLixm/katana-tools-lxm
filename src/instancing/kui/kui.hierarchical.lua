@@ -1,6 +1,6 @@
 --[[
 todo
-version=0.0.5
+version=0.0.7
 ]]
 
 
@@ -44,6 +44,19 @@ local function logerror(...)
   logger:error(logmsg)
   error(logmsg)
 
+end
+
+local function logassert(toassert, ...)
+  --[[
+  Check is toassert is true else log an error.
+
+  Args:
+    ...(any): arguments used for log's message. Converted to string.
+  ]]
+  if not toassert then
+    logerror(...)
+  end
+  return toassert
 end
 
 
@@ -730,9 +743,11 @@ function PointCloudData:new(location, time)
       grouping = tonumber(data_arbtr[arbitrary_grouping*i+3])
       multiplier = tonumber(data_arbtr[arbitrary_grouping*i+4])
       additional = data_arbtr[arbitrary_grouping*i+5]
-      additional = assert(
+      additional = logassert(
           loadstring(conkat("return ", additional)),
-          "Error while converting <instancing.data.arbitrary> column 5 to Lua."
+          "Error while converting <instancing.data.arbitrary> column 5/5 to Lua.",
+          " Issue in: ",
+          additional
       )
       additional = additional()  -- this should be a table
       pcvalues, value_type = get_loc_attr(self.location, path, self.time)
@@ -745,7 +760,7 @@ function PointCloudData:new(location, time)
         ["path"] = path,
         ["grouping"] = grouping,
         ["multiplier"] = multiplier,
-        -- value should always be a numerical index table
+        -- ! values should always be a numerical index table.
         ["values"] = pcvalues,
         ["type"] = value_type
       }
