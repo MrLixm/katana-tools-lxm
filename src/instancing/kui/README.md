@@ -62,6 +62,11 @@ source to pick.
 
 ## About
 
+The code use Lua tables that cannot store more than 2^27 (134 million) values.
+I hope you never reach this amount of values. (something like 44mi points
+with XYZ values).
+
+
 When the `$rotation` token is declared, it is always converted to individuals
 `$rotationX/Y/Z` attributes. These new attributes also specify the axis which
 is assumed to be by default :
@@ -77,3 +82,76 @@ value grouping (`[2]`) = 3
 
 ## Development
 
+### Comments
+
+Docstrings can be a bit confusing as sometimes `instance` is referring to the 
+lua class object that is instanced, and sometimes to the Katana instance object.
+
+When you see `-- /!\ perfs` means the bloc might be run a havey amount of time and
+has to be writen with this in mind.
+
+### pointcloudData
+
+Here is a look at what some attributes looks like
+
+```lua
+  local attrs = {
+    ["time"]=time,
+    ["location"]=location,
+    ["common"]={
+      ["scale"]=false,
+      ["rotation"]=false,
+      ["translation"]=false,
+      ["index"]=false,
+      ["points"]=false,
+      ["matrix"]=false,
+      ["rotationX"]=false,
+      ["rotationY"]=false,
+      ["rotationZ"]=false
+    },
+    ["sources"]=false,
+    ["arbitrary"]=false,
+    ["point_count"]=false
+  }
+
+```
+
+#### sources
+```lua
+  sources = {
+    "indexN"={
+      ["path(str)"]="scene graph location of the instance source",
+      ["index(num)"]="index it's correspond to on the pointCloud (offset has been applied), same as the parent key.",
+      ["proxy(Optional[str])"]="proxy geometry location"
+    }
+    1: ...
+  }
+```
+#### arbitrary
+```lua
+  arbitrary = {
+    ["target attribute path"]={
+      ["path(str)"]= "attribute path relative to the source.",
+      ["grouping(num)"]= "how much value belongs to an individual point.",
+      ["multiplier(num)"]= "quick way to multiply values.",
+      ["values(table)"]= "table of value gathered on the source using the above path",
+      ["type(DataAttribute)"]= "DataAttribute class not instanced that correspond to values",
+      ["processed(DataAttribute)"] = "DataAttribute class INSTANCED that correspond to <values> * <multiplier>"
+    }
+    ...
+  }
+```
+#### common
+```lua
+  common = {
+    ["token (without the $)"]={
+      ["path(str)"]= "attribute path relative to the source.",
+      ["grouping(num)"]= "how much value belongs to an individual point.",
+      ["multiplier(num)"]= "quick way to multiply values.",
+      ["values(table)"]= "table of value gathered on the source using the above path",
+      ["type(DataAttribute)"]= "DataAttribute class not instanced that correspond to values",
+      ["processed(table)"] = "Values but processed. Correspond to <values> * <multiplier>."
+    }
+    ...
+  }
+```

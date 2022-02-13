@@ -18,6 +18,7 @@ local tostring = tostring
 local stringformat = string.format
 local select = select
 local tableconcat = table.concat
+local type = type
 
 local function conkat(...)
   --[[
@@ -48,6 +49,8 @@ end
 --[[ __________________________________________________________________________
   Katana UTILITIES
 ]]
+
+local OPARG = Interface.GetOpArg()
 
 local function get_attribute_class(kattribute)
   --[[
@@ -158,7 +161,6 @@ end
 
 
 local InstancingMethod = {}
-
 function InstancingMethod:new(point_data)
   --[[
   Base class to implement support for an instancing method.
@@ -190,23 +192,12 @@ function InstancingMethod:new(point_data)
 
 end
 
-
--- Used for InstancingHierarchical
--- key is the token to query and value is the target attribute path
--- if the token doesnt have any value on point_data it will not be added.
-local token_target = {
-  ["scale"]="xform.group0.scale",
-  ["translation"]="xform.group0.translate",
-  ["matrix"]="xform.group0.matrix",
-  -- if the pdata was validated, we for sure have rotationX/Y/Z
-  ["rotationX"]="xform.group0.rotateX",
-  ["rotationY"]="xform.group0.rotateY",
-  ["rotationZ"]="xform.group0.rotateZ"
-}
-
-
 local function InstancingHierarchical(point_data)
   --[[
+
+  Subclassing InstancingMethod.
+  This has a performance cost but we don't care as this will be runned one time.
+
   Args:
     point_data(pointcloudData) : pointcloudData instance that has been built.
   ]]
@@ -229,7 +220,11 @@ local function InstancingHierarchical(point_data)
 end
 
 local function InstancingArray(point_data)
-    --[[
+  --[[
+
+  Subclassing InstancingMethod.
+  This has a performance cost but we don't care as this will be runned one time.
+
   Args:
     point_data(pointcloudData) : pointcloudData instance that has been built.
   ]]
@@ -239,8 +234,20 @@ local function InstancingArray(point_data)
 end
 
 
-local InstanceHierarchical = {}
+-- Used by InstanceHierarchical
+-- key is the token to query and value is the target attribute path
+-- if the token doesnt have any value on point_data it will not be added.
+local token_target = {
+  ["scale"]="xform.group0.scale",
+  ["translation"]="xform.group0.translate",
+  ["matrix"]="xform.group0.matrix",
+  -- if the pdata was validated, we for sure have rotationX/Y/Z
+  ["rotationX"]="xform.group0.rotateX",
+  ["rotationY"]="xform.group0.rotateY",
+  ["rotationZ"]="xform.group0.rotateZ"
+}
 
+local InstanceHierarchical = {}
 function InstanceHierarchical:new(name, id)
   --[[
   A single hierarchical instance location represented as a class.
@@ -250,7 +257,9 @@ function InstanceHierarchical:new(name, id)
 
   Args:
     name(str): name template to give to the instance (with tokens)
-    id(int): unique identifier for the instance, usually the loop current index
+    id(int):
+      !! starts at 0 !!
+      unique identifier for the instance, usually the loop current index
 
   Attributes:
     data(table):
@@ -258,6 +267,7 @@ function InstanceHierarchical:new(name, id)
       be reused at build time for the instance name.
     gb(GroupBuilder):
     id(int):
+      !! starts at 0 !!
       unique identifier for the instance, usually the loop current index
     nametmp(str):
       name template to give to the instance (so with tokens)
@@ -273,7 +283,7 @@ function InstanceHierarchical:new(name, id)
     }
   }
 
-  attrs.gb:update(Interface.GetOpArg())
+  attrs.gb:update(OPARG)
   attrs.gb:set("childAttrs.type", StringAttribute("instance"))
 
   function attrs:add(attr_path, attr_value)
@@ -283,6 +293,10 @@ function InstanceHierarchical:new(name, id)
         Path relative to the instance.
       attr_value(DataAttribute): Katana DataAttribute instance with the data
     ]]
+    if attr_value == nil then
+      return
+    end
+
     self.gb:set(
         conkat("childAttrs.", attr_path),
         attr_value
@@ -296,20 +310,22 @@ function InstanceHierarchical:new(name, id)
     ]]
 
     -- 1. PROCESS COMMON ATTRIBUTES
-    local value
     for token, target in pairs(token_target) do
-      -- get value at current point index
-      value = point_data:get_attr_value(token, self.id)
-      -- if value add it to this instance
-      if value ~= nil then
-        self:add(target, value)
-      end
+      -- add() handle nil value by himself
+      self:add(target, point_data:get_attr_value(token, self.id))
     end
     -- 2. PROCESS ARBITRARY ATTRIBUTES
-    for target, data in pairs(point_data["arbitrary"]) do
-        -- TODO wip
+    for target, _ in pairs(point_data["arbitrary"]) do
+      -- add() handle nil value by himself
+      self:add(target,  point_data:get_attr_value(target, self.id))
     end
-
+    -- 3. PROCESS INSTANCE SOURCE SETUP
+    local isrc_data = point_data:get_instance_source_data(self.id)
+    self:set_instance_source(
+        isrc_data["path"],
+        isrc_data["index"]
+    )
+    self:set_proxy(isrc_data["proxy"])
 
     -- end function
   end
@@ -427,54 +443,17 @@ function pointcloudData:new(location, time)
     common(table): keys are supported token value (+$)
     sources(table): num keys
     arbitrary(table): keys are instance target attribute path
+    __attrdata(table or false):
+      set by __get_attr_data(), make sure the method has been called before use
+    __buffer2(any or false):
+      used to store value without having to create a new local variable
 
-  [sources]
-  {
-    0: {
-      "path"(str):
-        scene graph location of the instance source
-      "index"(num):
-        index it's correspond to on the pointCloud (offset has been applied)
-      "proxy"(Optional[str]):
-        proxy geometry location
-    }
-    1: ...
-  }
-  [arbitrary]
-  {
-    "target attribute path": {
-      "path"(str):
-        attribute path relative to the source.
-      "grouping"(num):
-         how much value belongs to an individual point.
-      "multiplier"(num):
-        quick way to multiply values.
-      "values"(table):
-        table of value gathered on the source using the above path
-      "type"(DataAttribute):
-        DataAttribute class not instanced that correspond to values
-    }
-    ...
-  }
-  [common]
-  {
-    "token (without the $)": {
-      "path"(str):
-        attribute path relative to the source.
-      "grouping"(num):
-         how much value belongs to an individual point.
-      "multiplier"(num):
-        quick way to multiply values.
-      "values"(table):
-        table of value gathered on the source using the above path
-      "type"(DataAttribute):
-        DataAttribute class not instanced that correspond to values
-    }
-    ...
-  }
+  See ./README.md for detailed structure.
   ]]
 
   local attrs = {
+    ["__attrdata"]=false,
+    ["__buffer2"]=false,
     ["time"]=time,
     ["location"]=location,
     ["common"]={
@@ -518,28 +497,27 @@ function pointcloudData:new(location, time)
 
   end
 
-  function attrs:get_attr_value(attr_name, pid)
+  function attrs:__get_attr_data(attr_name)
     --[[
-    Return the value for the given attribute.
-    The value has been multiplied as specified by the attribute of the same
-    name
+    Get the attribute data table for the given <attr_name>.
+    Table looks like this :
+    {"path":"...", "grouping":"...", "multiplier":"...", "values":"...",
+    "type":"...", "processed":"..."}
+
+    Must be loop safe.
 
     Args:
-      attr_name(str):
-        name for the key to query, no matter if it's a common or an arbitrary
-        attribute name.
-      pid(int or nil): point index: which point to use. If not specified return
-        the whole table.
+      attr_name(str): common or arbiratry attribute name to query
 
     Returns:
-      object or nil:
-        type depends of args. Nil if the attr_name was never processed (empty).
+      str table or nil:
+        table of data for the given attr_name.
+        You can also use __attrdata attribute instead.
     ]]
-
-    local attrdata = self["common"][attr_name]
-    if attrdata == nil then
-      attrdata = self["arbitrary"][attr_name]
-      if attrdata == nil then
+    self.__attrdata = self["common"][attr_name]
+    if self.__attrdata == nil then
+      self.__attrdata = self["arbitrary"][attr_name]
+      if self.__attrdata == nil then
         logerror(
           "[pointcloudData][get_value4index]",
           "Can't find attribute <",
@@ -551,25 +529,75 @@ function pointcloudData:new(location, time)
       end
     end
 
-    if attrdata == false then
+    -- chek if buffer was set from an uninitialized attribute
+    if self.__attrdata == false then
       return nil
     end
 
-    local value local valuetype
-
-    if pid == nil then
-      value = attrdata["values"]  -- table
-    else
-      value = attrdata["values"][pid]  -- single value
-    end
-    -- TODO add multiplier and DataAttribute
-    return value
+    return self.__attrdata
 
   end
 
-  function attrs:at_pindex(pindex)
-    -- todo
-    return {}
+  function attrs:get_attr_value(attr_name, pindex)
+    --[[
+    Return the value for the given attribute.
+    It can be a slice for the given pindex, or the entire values.
+    The value has already been processed and is a DataAttribute instance.
+
+    Must be loop safe.
+
+    Args:
+      attr_name(str):
+        name for the key to query, no matter if it's a common or an arbitrary
+        attribute name.
+      pindex(int or nil): point index: which point to use. If not specified return
+        the whole table. !! starts at 0 !!
+
+    Returns:
+      DataAttribute or nil:
+        DataAttribute instance or nil if <attr_name> empty or not found.
+    ]]
+
+
+    -- this set self.__attrdata
+    self:__get_attr_data(attr_name)
+    if not self.__attrdata then
+      return nil
+    end
+
+    if pindex == nil then
+      -- return all the values
+      self.__buffer2 = self.__attrdata["processed"]  -- table
+    else
+      self.__buffer2 = {}
+      -- grouping usually vary between 1 and 16(matrices), so small loop.
+      for i in self.__attrdata["grouping"] do
+        self.__buffer2[#self.__buffer2 + 1] =  self.__attrdata["processed"][pindex + i]
+      end
+    end
+
+    -- return as Katana DataAttribute, with the tuple size specified from grouping
+    return self.__attrdata["type"](self.__buffer2, self.__attrdata["grouping"])
+
+  end
+
+  function attrs:get_instance_source_data(pindex)
+    --[[
+    Return the instance source data to use at the given point.
+    Looks like this:
+    {"path":"scene graph location", "proxy": ""}
+
+    Must be loop safe.
+
+    Args:
+      pindex(int): point index: which point to use. !! starts at 0 !!
+
+    Returns:
+      table or nil: nil if the <soruces> attribute doesn't have the
+        corresponding index.
+    ]]
+    return self["sources"][self:get_attr_value("index", pindex)]
+
   end
 
   function attrs:convert_rotation2rotationaxis()
@@ -632,7 +660,7 @@ function pointcloudData:new(location, time)
     -- check that the data queried above is valid
     self:validate()
     -- then modify this data for final use
-    self:convert_rotation2rotationaxis()
+    self:finalize()
   end
 
   function attrs:build_sources()
@@ -654,7 +682,7 @@ function pointcloudData:new(location, time)
         self.time
     )
 
-    local data_index_offset = get_loc_attr(
+    local index = get_loc_attr(
         self.location,
         "instancing.settings.index_offset",
         self.time,
@@ -662,7 +690,6 @@ function pointcloudData:new(location, time)
     )
 
     local path
-    local iindex
     local proxy
     self["sources"] = {}
 
@@ -670,15 +697,16 @@ function pointcloudData:new(location, time)
     for i=0, #data_sources / 3 - 1 do
 
       path = data_sources[3*i+1]
-      iindex = tonumber(data_sources[3*i+2]) - data_index_offset
+      index = tonumber(data_sources[3*i+2]) - index
       proxy = data_sources[3*i+3]
 
       -- process special cases here --------------------
       -- none yet
 
-      self["sources"][#self["sources"] + 1] = {
+      self["sources"][tostring(index)] = {
         ["path"] = path,
-        ["index"] = iindex,
+        -- even if the key already use the index, respecify it here as num
+        ["index"] = index,
         ["proxy"] = proxy
       }
 
@@ -722,6 +750,7 @@ function pointcloudData:new(location, time)
         ["path"] = path,
         ["grouping"] = grouping,
         ["multiplier"] = multiplier,
+        -- value should always be a numerical index table
         ["values"] = pcvalues,
         ["type"] = value_type
       }
@@ -781,6 +810,7 @@ function pointcloudData:new(location, time)
         ["path"] = path,
         ["grouping"] = grouping,
         ["multiplier"] = multiplier,
+        -- value should always be a numerical index table
         ["values"] = pcvalues,
         ["type"] = value_type
       }
@@ -909,6 +939,43 @@ function pointcloudData:new(location, time)
     -- end for validate()
   end
 
+  function attrs:finalize()
+  --[[
+  Last method executed to build this instance.
+  - convert_rotation2rotationaxis
+  - For each attribute in common and arbitrary, create the "processed"
+    key that hold the values but multiplied.
+
+  Must be executed after <validate>
+  ]]
+
+  -- rebuild rotation attributes
+  self:convert_rotation2rotationaxis()
+
+  local value
+  local stime = os.clock()
+
+  -- we build the <processed> key
+  for _, source in pairs({"common", "arbitrary"}) do
+
+    for token, attr_data in pairs(self[source]) do
+
+      value = attr_data["values"]
+      for i, v in ipairs(value) do
+        value[i] = v * attr_data["multiplier"]
+      end
+      -- create the new <processed> key.
+      self[source][token]["processed"] = value
+
+    end
+
+  end
+
+  stime = os.clock() - stime
+  logger:debug("Finished in ",stime,"s for pointcloud <",self.location,">.")
+
+end
+
   return attrs
 
 end
@@ -949,9 +1016,7 @@ local function create_instances()
   end
 
   stime = os.clock() - stime
-  logger:info(
-      conkat("Finished in ",stime,"s for pointcloud <",u_pointcloud_sg,">.")
-  )
+  logger:info("Finished in ",stime,"s for pointcloud <",u_pointcloud_sg,">.")
 
 end
 
