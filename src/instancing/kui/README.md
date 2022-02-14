@@ -44,9 +44,21 @@ pre-defined attributes that must be created on the source location :
   
     ⚠ This parameter has a potential security flaw as everything inside is compiled to Lua code using `loadstring("return "..content)`
 
-#### common tokens
+#### common tokens available
 
-- 
+```
+$scale
+$rotation
+$translation
+$index
+$points
+$matrix
+$rotationX
+$rotationY
+$rotationZ
+```
+
+
 
 
 ## Setup
@@ -62,14 +74,14 @@ Scene graph location of the source (pointcloud)
 Naming template used for instances. 3 tokens available :
 
 - `$id` _(mandatory)_: replaced by point number
-  - can be suffixe by a number to add a digit padding, ex: `$id3` can give `008`
+  - can be suffixed by a number to add a digit padding, ex: `$id3` can give `008`
 - `$sourcename` : basename of the instance source location used
 - `$sourceindex` : index attribute that was used to determine the instance
 source to pick.
 
 ## About
 
-The code use Lua tables that cannot store more than 2^27 (134 million) values.
+The code use Lua tables that cannot store more than 2e27 (134 million) values.
 I hope you never reach this amount of values. (something like 44mi points
 with XYZ values).
 
@@ -91,18 +103,18 @@ value grouping (`[2]`) = 3
 
 ### Comments
 
-Docstrings can be a bit confusing as sometimes `instance` is referring to the 
-lua class object that is instanced, and sometimes to the Katana instance object.
+Docstrings can be a bit confusing as sometimes `instance` is referring to the Lua class object that is instanced, and sometimes to the Katana instance object.
 
-When you see `-- /!\ perfs` means the bloc might be run a havey amount of time and
-has to be writen with this in mind.
+When you see `-- /!\ perfs` means the bloc might be run a heavy amount of time and
+had to be written with this in mind.
 
-### pointcloudData
+### PointCloudData
 
 Here is a look at what some attributes looks like
 
 ```lua
-  local attrs = {
+-- attributes at init time  
+local attrs = {
     ["time"]=time,
     ["location"]=location,
     ["common"]={
