@@ -1,8 +1,13 @@
 --[[
 todo
-version=0.0.7
+version=0.0.8
 ]]
 
+
+-- 95% of the code is wrapped in this condition as it's absolutely not
+-- needed when not at "AtRoot", dirty but works.
+-- run-time won is negligable (~7%), memory not measured.
+if Interface.AtRoot() then
 
 local logging = require "lllogger"
 local logger = logging:new("kui.hierarchical")
@@ -19,7 +24,6 @@ local tostring = tostring
 local stringformat = string.format
 local select = select
 local tableconcat = table.concat
-local type = type
 
 local function conkat(...)
   --[[
@@ -998,10 +1002,10 @@ end
 
 -- InstancingMethod -----------------------------------------------------------
 
-local InstancingMethod = {}
-function InstancingMethod:new(point_data)
+local InstancingHierarchical = {}
+function InstancingHierarchical:new(point_data)
   --[[
-  Base class to implement support for an instancing method.
+
   Made the link between PointCloudData and instance creation.
 
   Args:
@@ -1010,6 +1014,7 @@ function InstancingMethod:new(point_data)
   Attributes:
     pdata(PointCloudData): PointCloudData instance
     name_tmp(str): name to give to the instances, with tokens.
+
   ]]
 
   local attrs = {
@@ -1017,32 +1022,8 @@ function InstancingMethod:new(point_data)
     name_tmp = false,
   }
 
-  function attrs:build()
-    logerror("[InstancingMethod][build] NotImplementedError")
-  end
-
-  function attrs:set_name_template(name)
-    self["name_tmp"] = name
-  end
-
-
-  return attrs
-
-end
-
-local function InstancingHierarchical(point_data)
-  --[[
-
-  Subclassing InstancingMethod.
-  This has a performance cost but we don't care as this will be runned one time.
-
-  Args:
-    point_data(PointCloudData) : PointCloudData instance that has been built.
-  ]]
-  local inner = InstancingMethod:new(point_data)
-
   -- override build()
-  function inner:build()
+  function attrs:build()
 
     local instance
     -- /!\ perfs
@@ -1054,22 +1035,13 @@ local function InstancingHierarchical(point_data)
 
   end
 
-  return inner
+  function attrs:set_name_template(name)
+  self["name_tmp"] = name
 end
 
-local function InstancingArray(point_data)
-  --[[
-
-  Subclassing InstancingMethod.
-  This has a performance cost but we don't care as this will be runned one time.
-
-  Args:
-    point_data(PointCloudData) : PointCloudData instance that has been built.
-  ]]
-  logerror("Method array not supported yet !") -- TODO
-  local inner = InstancingMethod:new(point_data)
-  return inner
+  return attrs
 end
+
 
 -- processes ------------------------------------------------------------------
 
@@ -1082,7 +1054,6 @@ local function create_instances()
 
   local u_pointcloud_sg = get_user_attr( time, "pointcloud_sg", "$error" )[1]
   local u_instance_name = get_user_attr( time, "instance_name", "$error" )[1]
-  local u_instance_method = get_user_attr( time, "instance_method", "$error" )[1]
 
   -- process the source pointcloud
   logger:info("Started processing source <", u_pointcloud_sg, ">.")
@@ -1093,62 +1064,47 @@ local function create_instances()
 
   -- start instancing
   local instance
-
-  if u_instance_method == "hierarchical" then
-
-    instance = InstancingHierarchical(pointdata)
-    instance:set_name_template(u_instance_name)
-    instance:build()
-
-  elseif u_instance_method == "array" then
-
-    instance = InstancingArray(pointdata)
-    instance:set_name_template(u_instance_name)
-    instance:build()
-
-  end
+  instance = InstancingHierarchical:new(pointdata)
+  instance:set_name_template(u_instance_name)
+  instance:build()
 
   stime = os.clock() - stime
   logger:info("Finished in ",stime,"s for pointcloud <",u_pointcloud_sg,">.")
 
 end
 
-local function finalize_instances()
-  --[[
-  When Interface is not at root.
-  Only usefull for hierarchical but still called for array.
+print("\n")  -- TODO remove before publish
+create_instances()
 
-  Not recommended to log anything here as the message will be repeated times
-  the number of instances (so can be thousands !)
-  ]]
+  --end if Interface.AtRoot() first condition
+  -----------------------------------------------------------------------------
+else
 
-  -- attributes created for a single instance
-  local childAttrs = Interface.GetOpArg("childAttrs")  -- type: GroupAttribute
+  local function finalize_instances()
+    --[[
+    When Interface is not at root.
+    Only usefull for hierarchical but still called for array.
 
-  for i=0, childAttrs:getNumberOfChildren() - 1 do
+    Not recommended to log anything here as the message will be repeated times
+    the number of instances (so can be thousands !)
+    ]]
 
-    Interface.SetAttr(
-        childAttrs:getChildName(i),
-        childAttrs:getChildByIndex(i)
-    )
+    -- attributes created for a single instance
+    local childAttrs = Interface.GetOpArg("childAttrs")  -- type: GroupAttribute
+
+    for i=0, childAttrs:getNumberOfChildren() - 1 do
+
+      Interface.SetAttr(
+          childAttrs:getChildName(i),
+          childAttrs:getChildByIndex(i)
+      )
+
+    end
 
   end
 
-end
-
-local function run()
-  --[[
-  First function executed.
-  ]]
-
-  if Interface.AtRoot() then
-    print(string.rep("\n", 10))
-    create_instances()
-  else
-    finalize_instances()
-  end
+  finalize_instances()
 
 end
+--end if Interface.AtRoot()
 
--- execute
-run()
