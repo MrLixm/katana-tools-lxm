@@ -1,6 +1,6 @@
 --[[
 todo
-version=0.0.8
+version=0.0.10
 ]]
 
 
@@ -557,9 +557,10 @@ function PointCloudData:new(location, time)
       return nil
     end
 
+    -- no point specified, return all the values
     if pindex == nil then
-      -- return all the values
       self.__buffer2 = self.__attrdata["processed"]  -- table
+    -- else return a slice of the table
     else
       self.__buffer2 = {}
       -- grouping usually vary between 1 and 16(matrices), so small loop.
@@ -624,9 +625,9 @@ function PointCloudData:new(location, time)
     }
     local rvalues local raxis
 
-    -- TODO check how grouping can affect that
-    -- iterate trough all rotation values with are assumed to be in x,y,z order
     -- /!\ Perfs
+    -- iterate trough all rotation values with are assumed to be in x,y,z order
+    -- grouping can only be 3
     for i=0, #self.common.rotation.values / self.common.rotation.grouping - 1 do
 
       -- iterate trough each axis x,y,z
@@ -799,6 +800,7 @@ function PointCloudData:new(location, time)
     local path
     local pcvalues
     local value_type
+    local processed
     local pointsvalue = {}
 
     -- start building the common key ------------------------------------------
@@ -809,15 +811,24 @@ function PointCloudData:new(location, time)
       grouping = tonumber(data_common[common_grouping*i+3])
       multiplier = tonumber(data_common[common_grouping*i+4])
       pcvalues, value_type = get_loc_attr(self.location, path, self.time)
+      processed = nil
 
       -- process special cases here --------------------
       if token == "points" then
+        -- TODO Should we let the original values/grouping/mult and
+        -- only set  point_count or is the current solution of
+        -- cleaning the array good ?
+        --
         -- <values> key should always be a table so just fill it with 0 here
         for pointindex=1, #pcvalues / grouping * multiplier do
           pointsvalue[pointindex] = 0
         end
         pcvalues = pointsvalue
+        processed = pointsvalue
         grouping = 1
+        multiplier = 1
+        self["point_count"] = #pointsvalue
+
       end
       -- force transform token to use doubles
       if transform_tokens[token] ~= nil then
@@ -825,12 +836,14 @@ function PointCloudData:new(location, time)
       end
 
     self["common"][token] = {
-    ["path"] = path,
-    ["grouping"] = grouping,
-    ["multiplier"] = multiplier,
-    -- value should always be a numerical index table
-    ["values"] = pcvalues,
-    ["type"] = value_type
+      ["path"] = path,
+      ["grouping"] = grouping,
+      ["multiplier"] = multiplier,
+      -- value should always be a numerical index table
+      ["values"] = pcvalues,
+      ["type"] = value_type,
+      -- can be nil so not created
+      ["processed"] = processed,
     }
 
     end
@@ -842,7 +855,7 @@ function PointCloudData:new(location, time)
     --[[
     To call after built operations.
     Verify that self table is properly built.
-    Also clean the attributes and set "point_count" one.
+    Also clean the unusable attributes.
     TODO see if arbitrary is also needed to be validated
     ]]
 
@@ -932,20 +945,48 @@ function PointCloudData:new(location, time)
       )
     end
 
-    local pointsn = #self.common.points.values * self.common.points.multiplier
+    -- verify grouping values
+    if self.common.rotation then
+      if self.common.rotation.grouping ~= 3 then
+        logerror(
+          "[PointCloudData][validate] Source <", self.location,
+          "> $rotation token only accepts 3 as grouping, not ",
+          self.common.rotation.grouping
+        )
+      end
+    end
+    if self.common.matrix then
+      if self.common.matrix.grouping ~= 16 then
+        logerror(
+          "[PointCloudData][validate] Source <", self.location,
+          "> $matrix token only accepts 16 as grouping, not ",
+          self.common.matrix.grouping
+        )
+      end
+    end
+    if self.common.translation then
+      if self.common.translation.grouping ~= 3 then
+        logerror(
+          "[PointCloudData][validate] Source <", self.location,
+          "> $translation token only accepts 3 as grouping, not ",
+          self.common.translation.grouping
+        )
+      end
+    end
+
     local attrlength
-    for attrname, attrdata in ipairs(self.common) do
+    for attrname, attrdata in pairs(self.common) do
       -- attrdata can be <false> if not built so skip if so, I wish lua has a
       -- "continue" keyword like in python !
       if attrdata then
         --we check first that the <grouping> and <points> attribute seems valid
         attrlength = #(attrdata.values) / attrdata.grouping
-        if attrlength ~= pointsn then
+        if attrlength ~= self.point_count then
           logerror(
           "[PointCloudData][validate] Common attribute <", attrname,
           "> as an odd number of values : ", tostring(#(attrdata.values)),
           " / ", tostring(attrdata.grouping), " = ", attrlength,
-          " while $points=", pointsn
+          " while $points=", self.point_count
           )
         end
         -- end if attrdata is not false/nil
@@ -953,7 +994,6 @@ function PointCloudData:new(location, time)
       -- end for attrname, attrdata
     end
 
-    self["point_count"] = pointsn
     -- end for validate()
   end
 
@@ -977,8 +1017,9 @@ function PointCloudData:new(location, time)
     for _, source in pairs({"common", "arbitrary"}) do
 
       for token, attr_data in pairs(self[source]) do
-        -- attr_data can be false and not be built
-        if attr_data then
+        -- attr_data can be false and not be built,
+        -- also check that there is not already the processed key
+        if attr_data and self[source][token]["processed"] == nil then
           value = attr_data["values"]
           for i, v in ipairs(value) do
             value[i] = v * attr_data["multiplier"]
@@ -1036,8 +1077,8 @@ function InstancingHierarchical:new(point_data)
   end
 
   function attrs:set_name_template(name)
-  self["name_tmp"] = name
-end
+    self["name_tmp"] = name
+  end
 
   return attrs
 end
@@ -1060,8 +1101,10 @@ local function create_instances()
   local pointdata
   pointdata = PointCloudData:new(u_pointcloud_sg, time)
   pointdata:build()
-  logger:debug("pointdata = \n", pointdata, "\n")
+  logger:info("Finished processing source <", u_pointcloud_sg, ">.",
+      pointdata.point_count, " points found.")
 
+  logger:debug("pointdata = \n", pointdata, "\n")
   -- start instancing
   local instance
   instance = InstancingHierarchical:new(pointdata)
@@ -1073,7 +1116,7 @@ local function create_instances()
 
 end
 
-print("\n")  -- TODO remove before publish
+print("\n")
 create_instances()
 
   --end if Interface.AtRoot() first condition
