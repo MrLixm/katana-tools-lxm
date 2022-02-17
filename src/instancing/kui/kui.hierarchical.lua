@@ -1,6 +1,6 @@
 --[[
-todo
 version=0.0.10
+todo
 ]]
 
 
@@ -260,7 +260,7 @@ function InstanceHierarchical:new(name, id)
     Args:
       attr_path(str): where the attribute should live on the instance.
         Path relative to the instance.
-      attr_value(DataAttribute): Katana DataAttribute instance with the data
+      attr_value(DataAttribute or nil): Katana DataAttribute instance with the data
     ]]
     if attr_value == nil then
       return
@@ -296,11 +296,13 @@ function InstanceHierarchical:new(name, id)
     end
     -- 3. PROCESS ARBITRARY ATTRIBUTES
     for target, arbtr_data in pairs(point_data["arbitrary"]) do
+      -- 1. first process the additional table
       -- we only use arbtr_data for the <additional> key yet so we can do this
       arbtr_data = arbtr_data["additional"]  -- type: table
       for addit_target, addit_value in pairs(arbtr_data) do
         self:add(addit_target, addit_value)
       end
+      -- 2. Add the arbitrary attribute value
       -- add() handle nil value by himself
       self:add(target,  point_data:get_attr_value(target, self.id))
     end

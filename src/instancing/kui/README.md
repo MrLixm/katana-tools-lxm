@@ -7,9 +7,16 @@ solution for instancing based on point-cloud locations.
 
 ![cover](./cover.png)
 
-## Features
+# Features
 
-### Very flexible
+- Hierarchical and Array instancing.
+- Logging and error handling.
+- Minimal performance loss compared to more straightforward solutions.
+
+
+# Setup
+
+## Source Attributes
 
 The script is able to support a lot of point-cloud configurations thanks to
 pre-defined attributes that must be created on the source location :
@@ -33,35 +40,124 @@ pre-defined attributes that must be created on the source location :
     Only you know why this attribute will be useful, they will just be transfered
     to the instance for whatever you need them for.
   - `[0]` = attribute path relative to the source.
-  
   - `[1]` = target attribute path relative to the instance.
-  
   - `[2]` = value grouping : how much value belongs to an individual point.
-  
   - `[3]` = value multiplier : quick way to multiply values.
-  
-  - `[4]` = additional attributes that must be created on instance. Defined as a Lua table like `{"target path"=DataAttribute(value)}`
-  
-    ⚠ This parameter has a potential security flaw as everything inside is compiled to Lua code using `loadstring("return "..content)`
+  - `[4]` = additional attributes that must be created on instance. Defined as a Lua table.
 
-#### common tokens available
+See under for detailed explanations.
+
+### instancing.data.sources
+
+#### column 2
+
+TODO, see if this is keeped.
+
+
+### instancing.data.common
+
+List of supported tokens for column `[1]`
 
 ```
-$scale
-$rotation
-$translation
-$index
 $points
+$index
 $matrix
+$scale
+$translation
+$rotation
 $rotationX
 $rotationY
 $rotationZ
 ```
 
+#### points
+
+Is mandatory.
+
+Only used to determine the number of individuals points using :
+```python
+length(points.values) / points.grouping * points.multiplier
+```
 
 
+#### index
 
-## Setup
+- `Grouping` can be any. (excepted to be usually 3 or 1 thought)
+
+Must correspond to the index values used in `instancing.data.sources`.
+If you need to offset these values you can offset `instancing.data.sources` 
+indexes instead by specifying `instancing.settings.index_offset`.
+
+
+#### matrix
+
+- `Grouping` must be 16 (4*4 matrix).
+
+I specified, take over all the other transforms attributes.
+
+
+#### scale
+
+- `Grouping` can be any.
+
+Source attribute is excepted to store values in X-Y-Z order.
+
+
+#### translation
+
+- `Grouping` must be 3.
+
+Source attribute is excepted to store values in X-Y-Z order.
+
+You can of course specify the same attribute used for `$points`.
+
+
+#### rotation
+
+- `Grouping` must be 3 .
+
+Source attribute is excepted to store values in X-Y-Z order.
+
+When the `$rotation` token is declared, it is always converted to individuals
+`$rotationX/Y/Z` attributes. These new attributes also specify the axis which
+is assumed to be by default :
+```lua
+axis = {
+    x = {1,0,0},
+    y = {0,1,0},
+    z = {0,0,1}
+}
+```
+If you would look to change the axis you have to use the `$rotationX/Y/Z` tokens.
+
+
+#### rotation X/Y/Z
+
+- `Grouping` can only be 4 :
+
+Values on source attributes are excepted to be as : `rotation value, X axis, Y axis, Z axis.`
+
+If `$rotation` is specified, these attributes will be overriden by it.
+
+
+### instancing.data.arbitrary
+
+#### column 4
+
+Arbitrary attributes might require to not only set the value but also its `scope`,  `inputType`, ... attributes. To do so you can provide a Lua-formatted table that describe how they must be created :
+```lua
+{"target path"=DataAttribute(value)}
+```
+Here is an example for an arbitrary `randomColor` attribute:
+```lua
+{
+    ["geometry.arbitrary.randomColor.inputType"]=StringAttribute("color3"),
+    ["geometry.arbitrary.randomColor.scope"]=StringAttribute("primitive"),
+}
+```
+
+⚠ You must now that this parameter has a potential security flaw as everything inside is compiled to Lua code using `loadstring("return "..content)` where `content` is the string submitted.
+
 
 #### User Arguments
 
@@ -79,36 +175,28 @@ Naming template used for instances. 3 tokens available :
 - `$sourceindex` : index attribute that was used to determine the instance
 source to pick.
 
-## About
+## Misc
 
 The code use Lua tables that cannot store more than 2e27 (134 million) values.
 I hope you never reach this amount of values. (something like 44mi points
 with XYZ values).
 
 
-When the `$rotation` token is declared, it is always converted to individuals
-`$rotationX/Y/Z` attributes. These new attributes also specify the axis which
-is assumed to be by default :
-```lua
-axis = {
-    x = {1,0,0},
-    y = {0,1,0},
-    z = {0,0,1}
-}
-```
-`$rotation` attribute is assumed to be in the X-Y-Z order in the case where
-value grouping (`[2]`) = 3
+# Performances
 
-## Development
+TODO
 
-### Comments
+
+# Development
+
+## Comments
 
 Docstrings can be a bit confusing as sometimes `instance` is referring to the Lua class object that is instanced, and sometimes to the Katana instance object.
 
 When you see `-- /!\ perfs` means the bloc might be run a heavy amount of time and
 had to be written with this in mind.
 
-### PointCloudData
+## PointCloudData
 
 Here is a look at what some attributes looks like
 
@@ -135,7 +223,7 @@ local attrs = {
 
 ```
 
-#### sources
+### sources
 ```lua
   sources = {
     "indexN"={
@@ -147,7 +235,7 @@ local attrs = {
 	...
   }
 ```
-#### arbitrary
+### arbitrary
 ```lua
   arbitrary = {
     ["target attribute path"]={
@@ -162,7 +250,7 @@ local attrs = {
     ...
   }
 ```
-#### common
+### common
 ```lua
   common = {
     ["token (without the $)"]={
