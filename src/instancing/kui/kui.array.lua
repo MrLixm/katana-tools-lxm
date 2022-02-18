@@ -4,7 +4,7 @@ todo
 ]]
 
 local logging = require "lllogger"
-local logger = logging:new("kui.hierarchical")
+local logger = logging:new("kui.array")
 logger:set_level("debug")
 logger.formatting:set_tbl_display_functions(false)
 logger.formatting:set_str_display_quotes(true)
@@ -204,8 +204,8 @@ local transform_tokens = {
 
 -- // used by PointCloudData
 -- excpected number of value per different attribute
-local common_grouping = 4
-local arbitrary_grouping = 5
+local common_grouping = 5
+local arbitrary_grouping = 6
 
 
 --[[ __________________________________________________________________________
@@ -342,6 +342,14 @@ function PointCloudData:new(location, time)
         DataAttribute instance or nil if <attr_name> is empty (=false).
     ]]
 
+    if attr_name == "sources" then
+      self.__buffer2 = {}
+      for index, source_data in pairs(self.sources) do
+        -- index should start counting at 0
+        self.__buffer2[tonumber(index) + 1] = source_data.path
+      end
+      return StringAttribute(self.__buffer2)
+    end
 
     -- this set self.__attrdata
     self:__get_attr_data(attr_name)
@@ -354,35 +362,6 @@ function PointCloudData:new(location, time)
 
     -- return as Katana DataAttribute, with the tuple size specified from grouping
     return self.__attrdata["type"](self.__buffer2, self.__attrdata["grouping"])
-
-  end
-
-  function attrs:get_instance_source_data(pindex)
-    --[[
-    Return the instance source data to use at the given point.
-    Looks like this:
-    {"path":"scene graph location", "proxy": ""}
-
-    Must be loop safe.
-
-    Args:
-      pindex(int): point index: which point to use. !! starts at 0 !!
-
-    Returns:
-      table:
-    ]]
-    local index = self:get_index_at_point(pindex)
-    local out = self["sources"][tostring(index)]
-    if out == nil then
-      logerror(
-        "An error occured when getting index for current point <",
-        pindex,
-        ">. Corresponding index found was <",
-        index,
-        "> and return nil on self['sources']."
-      )
-    end
-    return out
 
   end
 
@@ -431,6 +410,7 @@ function PointCloudData:new(location, time)
         ["path"] = "$rotation",
         ["grouping"] = 4,
         ["multiplier"] = self.common.rotation.multiplier,
+        ["additive"] = self.common.rotation.additive,
         ["values"] = rall_data[i][1],
         ["type"] = self.common.rotation.type
       }
@@ -457,7 +437,6 @@ function PointCloudData:new(location, time)
     This source attribute is a X*3 string array as:
       [0] instance source location,
       [1] instance source index,
-      [2] proxy geometry location
 
     ]]
 
@@ -476,7 +455,6 @@ function PointCloudData:new(location, time)
     )
 
     local path
-    local proxy
     local index
     self["sources"] = {}
 
@@ -485,7 +463,6 @@ function PointCloudData:new(location, time)
 
       path = data_sources[3*i+1]
       index = tonumber(data_sources[3*i+2]) - index_offset
-      proxy = data_sources[3*i+3]
 
       -- process special cases here --------------------
       -- none yet
@@ -494,7 +471,6 @@ function PointCloudData:new(location, time)
         ["path"] = path,
         -- even if the key already use the index, respecify it here as num
         ["index"] = index,
-        ["proxy"] = proxy,
         ["attrs"] = Interface.GetAttr("", path)
       }
 
@@ -517,6 +493,7 @@ function PointCloudData:new(location, time)
     local target
     local grouping
     local multiplier
+    local additive
     local path
     local pcvalues
     local value_type
@@ -530,7 +507,14 @@ function PointCloudData:new(location, time)
       target = data_arbtr[arbitrary_grouping*i+2]
       grouping = tonumber(data_arbtr[arbitrary_grouping*i+3])
       multiplier = tonumber(data_arbtr[arbitrary_grouping*i+4])
-      additional = data_arbtr[arbitrary_grouping*i+5]
+      if not multiplier then
+        multiplier = 1
+      end
+      additive = tonumber(data_arbtr[arbitrary_grouping*i+5])
+      if not additive then
+        additive = 0
+      end
+      additional = data_arbtr[arbitrary_grouping*i+6]
       additional = logassert(
           loadstring(conkat("return ", additional)),
           "Error while converting <instancing.data.arbitrary> column 5/5 to Lua.",
@@ -548,6 +532,7 @@ function PointCloudData:new(location, time)
         ["path"] = path,
         ["grouping"] = grouping,
         ["multiplier"] = multiplier,
+        ["additive"] = additive,
         -- ! values should always be a numerical index table.
         ["values"] = pcvalues,
         ["type"] = value_type
@@ -580,6 +565,7 @@ function PointCloudData:new(location, time)
     local token
     local grouping
     local multiplier
+    local additive
     local path
     local pcvalues
     local value_type
@@ -593,6 +579,13 @@ function PointCloudData:new(location, time)
       token = self:check_token(data_common[common_grouping*i+2]) -- return without the "$" !
       grouping = tonumber(data_common[common_grouping*i+3])
       multiplier = tonumber(data_common[common_grouping*i+4])
+      if not multiplier then
+        multiplier = 1
+      end
+      additive = tonumber(data_common[common_grouping*i+5])
+      if not additive then
+        additive = 0
+      end
       pcvalues, value_type = get_loc_attr(self.location, path, self.time)
       processed = nil
 
@@ -610,8 +603,16 @@ function PointCloudData:new(location, time)
         processed = pointsvalue
         grouping = 1
         multiplier = 1
-        self["point_count"] = #pointsvalue
+        self["point_count"] = #pointsvalue + additive
+        additive = 0
 
+      elseif token == "index" then
+        -- for the index token we make sure to convert grouping to 1
+        for pointindex=1, #pcvalues / grouping do
+          pointsvalue[pointindex] = pcvalues[pointindex * grouping]
+        end
+        pcvalues = pointsvalue
+        grouping = 1
       end
       -- force transform token to use doubles
       if transform_tokens[token] ~= nil then
@@ -622,6 +623,7 @@ function PointCloudData:new(location, time)
       ["path"] = path,
       ["grouping"] = grouping,
       ["multiplier"] = multiplier,
+      ["additive"] = additive,
       -- value should always be a numerical index table
       ["values"] = pcvalues,
       ["type"] = value_type,
@@ -777,6 +779,13 @@ function PointCloudData:new(location, time)
       -- end for attrname, attrdata
     end
 
+    -- instance sources index must start at 0
+    if self.sources["0"] == nil then
+      logerror(
+        "[PointCloudData][validate] No index 0 found in <sources> attributes."
+      )
+    end
+
     -- end for validate()
   end
 
@@ -805,7 +814,7 @@ function PointCloudData:new(location, time)
         if attr_data and self[source][token]["processed"] == nil then
           value = attr_data["values"]
           for i, v in ipairs(value) do
-            value[i] = v * attr_data["multiplier"]
+            value[i] = v * attr_data["multiplier"] + attr_data["additive"]
           end
           -- create the new <processed> key.
           self[source][token]["processed"] = value
@@ -858,11 +867,17 @@ function InstancingArray:new(point_data)
 
   end
 
-
-  -- override build()
   function attrs:build()
+    --[[
+    Build the array instance from PointCloudData
+    ]]
 
-    -- 3. PROCESS ARBITRARY ATTRIBUTES
+    -- 1. PROCESS COMMON & SOURCES ATTRIBUTES
+    for _, tt in ipairs(token_target) do
+      self:add(tt["target"], self.pdata:get_attr_value(tt["token"]))
+    end
+
+    -- 2. PROCESS ARBITRARY ATTRIBUTES
     for target, arbtr_data in pairs(self.pdata["arbitrary"]) do
       -- 1. first process the additional table
       -- we only use arbtr_data for the <additional> key yet so we can do this
@@ -871,7 +886,6 @@ function InstancingArray:new(point_data)
         self:add(addit_target, addit_value)
       end
       -- 2. Add the arbitrary attribute value
-      -- add() handle nil value by himself
       self:add(target,  self.pdata:get_attr_value(target))
     end
 
@@ -883,3 +897,33 @@ end
 
 -- processes ------------------------------------------------------------------
 
+local function run()
+  --[[
+  Create the instance
+  ]]
+  local stime = os.clock()
+  local time = Interface.GetCurrentTime() -- int
+
+  local u_pointcloud_sg = get_user_attr( time, "pointcloud_sg", "$error" )[1]
+
+  -- process the source pointcloud
+  logger:info("Started processing source <", u_pointcloud_sg, ">.")
+  local pointdata
+  pointdata = PointCloudData:new(u_pointcloud_sg, time)
+  pointdata:build()
+  logger:info("Finished processing source <", u_pointcloud_sg, ">.",
+      pointdata.point_count, " points found.")
+
+  logger:debug("pointdata = \n", pointdata, "\n")
+  -- start instancing
+  local instance
+  instance = InstancingArray:new(pointdata)
+  instance:build()
+
+  stime = os.clock() - stime
+  logger:info("Finished in ",stime,"s for pointcloud <",u_pointcloud_sg,">.")
+
+end
+
+print("\n")
+run()
