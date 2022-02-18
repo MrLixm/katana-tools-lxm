@@ -1,5 +1,5 @@
 --[[
-version=0.0.10
+version=0.0.13
 todo
 ]]
 
@@ -208,8 +208,8 @@ local transform_tokens = {
 
 -- // used by PointCloudData
 -- excpected number of value per different attribute
-local common_grouping = 4
-local arbitrary_grouping = 5
+local common_grouping = 5
+local arbitrary_grouping = 6
 
 
 --[[ __________________________________________________________________________
@@ -287,7 +287,6 @@ function InstanceHierarchical:new(name, id)
         isrc_data["path"],
         isrc_data["index"]
     )
-    self:set_proxy(isrc_data["proxy"])
 
     -- 2. PROCESS COMMON ATTRIBUTES
     for _, tt in ipairs(token_target) do
@@ -323,10 +322,6 @@ function InstanceHierarchical:new(name, id)
       "geometry.instanceSource",
       StringAttribute(instance_source)
     )
-  end
-
-  function attrs:set_proxy(proxy_path)
-    -- TODO, might not be implemented
   end
 
   function attrs:get_name()
@@ -580,7 +575,7 @@ function PointCloudData:new(location, time)
     --[[
     Return the instance source data to use at the given point.
     Looks like this:
-    {"path":"scene graph location", "proxy": ""}
+    {"path":"scene graph location"}
 
     Must be loop safe.
 
@@ -650,6 +645,7 @@ function PointCloudData:new(location, time)
         ["path"] = "$rotation",
         ["grouping"] = 4,
         ["multiplier"] = self.common.rotation.multiplier,
+        ["additive"] = self.common.rotation.additive,
         ["values"] = rall_data[i][1],
         ["type"] = self.common.rotation.type
       }
@@ -676,7 +672,6 @@ function PointCloudData:new(location, time)
     This source attribute is a X*3 string array as:
       [0] instance source location,
       [1] instance source index,
-      [2] proxy geometry location
 
     ]]
 
@@ -687,24 +682,15 @@ function PointCloudData:new(location, time)
         self.time
     )
 
-    local index_offset = get_loc_attr(
-        self.location,
-        "instancing.settings.index_offset",
-        self.time,
-        0 -- default value if attr not existing
-    )
-
     local path
-    local proxy
     local index
     self["sources"] = {}
 
     -- start building the sources key ------------------------------------------
-    for i=0, #data_sources / 3 - 1 do
+    for i=0, #data_sources / 2 - 1 do
 
-      path = data_sources[3*i+1]
-      index = tonumber(data_sources[3*i+2]) - index_offset
-      proxy = data_sources[3*i+3]
+      path = data_sources[2*i+1]
+      index = tonumber(data_sources[2*i+2])
 
       -- process special cases here --------------------
       -- none yet
@@ -713,7 +699,6 @@ function PointCloudData:new(location, time)
         ["path"] = path,
         -- even if the key already use the index, respecify it here as num
         ["index"] = index,
-        ["proxy"] = proxy,
         ["attrs"] = Interface.GetAttr("", path)
       }
 
@@ -736,27 +721,37 @@ function PointCloudData:new(location, time)
     local target
     local grouping
     local multiplier
+    local additive
     local path
     local pcvalues
     local value_type
     local additional
     self["arbitrary"] = {}
 
-    -- start building the common key ------------------------------------------
+    -- start building the arbitrary key ------------------------------------------
     for i=0, #data_arbtr / arbitrary_grouping - 1 do
 
       path = data_arbtr[arbitrary_grouping*i+1]
       target = data_arbtr[arbitrary_grouping*i+2]
       grouping = tonumber(data_arbtr[arbitrary_grouping*i+3])
       multiplier = tonumber(data_arbtr[arbitrary_grouping*i+4])
-      additional = data_arbtr[arbitrary_grouping*i+5]
-      additional = logassert(
-          loadstring(conkat("return ", additional)),
-          "Error while converting <instancing.data.arbitrary> column 5/5 to Lua.",
-          " Issue in: ",
-          additional
-      )
-      additional = additional()  -- this should be a table
+      if not multiplier then
+        multiplier = 1
+      end
+      additive = tonumber(data_arbtr[arbitrary_grouping*i+5])
+      if not additive then
+        additive = 0
+      end
+      additional = data_arbtr[arbitrary_grouping*i+6]
+      if additional then
+        additional = logassert(
+            loadstring(conkat("return ", additional)),
+            "Error while converting <instancing.data.arbitrary> column 5/5 to Lua.",
+            " Issue in: ",
+            additional
+        )
+        additional = additional()  -- this should be a table
+      end
       pcvalues, value_type = get_loc_attr(self.location, path, self.time)
 
       -- process special cases here --------------------
@@ -767,6 +762,7 @@ function PointCloudData:new(location, time)
         ["path"] = path,
         ["grouping"] = grouping,
         ["multiplier"] = multiplier,
+        ["additive"] = additive,
         -- ! values should always be a numerical index table.
         ["values"] = pcvalues,
         ["type"] = value_type
@@ -799,6 +795,7 @@ function PointCloudData:new(location, time)
     local token
     local grouping
     local multiplier
+    local additive
     local path
     local pcvalues
     local value_type
@@ -812,6 +809,13 @@ function PointCloudData:new(location, time)
       token = self:check_token(data_common[common_grouping*i+2]) -- return without the "$" !
       grouping = tonumber(data_common[common_grouping*i+3])
       multiplier = tonumber(data_common[common_grouping*i+4])
+      if not multiplier then
+        multiplier = 1
+      end
+      additive = tonumber(data_common[common_grouping*i+5])
+      if not additive then
+        additive = 0
+      end
       pcvalues, value_type = get_loc_attr(self.location, path, self.time)
       processed = nil
 
@@ -829,7 +833,8 @@ function PointCloudData:new(location, time)
         processed = pointsvalue
         grouping = 1
         multiplier = 1
-        self["point_count"] = #pointsvalue
+        self["point_count"] = #pointsvalue + additive
+        additive = 0
 
       end
       -- force transform token to use doubles
@@ -841,6 +846,7 @@ function PointCloudData:new(location, time)
       ["path"] = path,
       ["grouping"] = grouping,
       ["multiplier"] = multiplier,
+      ["additive"] = additive,
       -- value should always be a numerical index table
       ["values"] = pcvalues,
       ["type"] = value_type,
@@ -1024,7 +1030,7 @@ function PointCloudData:new(location, time)
         if attr_data and self[source][token]["processed"] == nil then
           value = attr_data["values"]
           for i, v in ipairs(value) do
-            value[i] = v * attr_data["multiplier"]
+            value[i] = v * attr_data["multiplier"] + attr_data["additive"]
           end
           -- create the new <processed> key.
           self[source][token]["processed"] = value
@@ -1065,7 +1071,6 @@ function InstancingHierarchical:new(point_data)
     name_tmp = false,
   }
 
-  -- override build()
   function attrs:build()
 
     local instance
