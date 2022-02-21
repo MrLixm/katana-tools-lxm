@@ -1,5 +1,5 @@
 --[[
-version=0.0.13
+version=0.0.14
 todo
 ]]
 
@@ -232,6 +232,8 @@ function InstanceHierarchical:new(name, id)
       unique identifier for the instance, usually the loop current index
 
   Attributes:
+    __rendered(bool):
+      true if the instance can be created, false to be ignored
     data(table):
       store attributes progressively set on the instance to
       be reused at build time for the instance name.
@@ -244,10 +246,11 @@ function InstanceHierarchical:new(name, id)
   ]]
 
   local attrs = {
-    nametmp = name,
-    id = id,
-    gb = GroupBuilder(),
-    data = {
+    ["__rendered"] = true,
+    ["nametmp"] = name,
+    ["id"] = id,
+    ["gb"] = GroupBuilder(),
+    ["data"] = {
       ["instance_source"] = false,
       ["source_index"] = false
     }
@@ -278,6 +281,11 @@ function InstanceHierarchical:new(name, id)
     at the current point index (id attribute).
     ]]
 
+    if not point_data:is_point_rendered(self.id) then
+      self.__rendered = false
+      return
+    end
+
     -- 1. PROCESS INSTANCE SOURCE SETUP
     -- had to be first for childAttrs to not override previously set
     local isrc_data = point_data:get_instance_source_data(self.id)
@@ -293,6 +301,7 @@ function InstanceHierarchical:new(name, id)
       -- add() handle nil value by himself
       self:add(tt["target"], point_data:get_attr_value(tt["token"], self.id))
     end
+
     -- 3. PROCESS ARBITRARY ATTRIBUTES
     for target, arbtr_data in pairs(point_data["arbitrary"]) do
       -- 1. first process the additional table
@@ -387,6 +396,12 @@ function InstanceHierarchical:new(name, id)
     --[[
     Last method to call once you finish building the Instance.
     ]]
+
+    -- check if this instance must be rendered first
+    if not self.__rendered then
+      return
+    end
+
     self:add("type", StringAttribute("instance"))
     Interface.CreateChild(
       self:get_name(),
@@ -398,6 +413,43 @@ function InstanceHierarchical:new(name, id)
   return attrs
 
 end
+
+local function build_attr_structure(
+    path, grouping, multiplier, additive, values, type, processed
+)
+  --[[
+  Build the table for a <common> or an <arbitrary> attribute
+
+  Might not respresent the final structure (arbitrary add an <additional> key)
+
+  Args:
+    path(str):
+    grouping(num):
+    multiplier(num): multiplier to apply to values
+    additive(num): offset to apply to values
+    values(table): value should always be a numerical index table
+    type(DataAttribute): with what Data type values must be encoded
+    processed(table or nil): optional, usually build in finalize()
+  ]]
+
+  if path == nil or grouping==nil or multiplier==nil or additive==nil or
+  values==nil or type==nil then
+    -- shittiest error message but don't want to complexify the function
+    logerror("[build_attr_structure] One of the supplied arguments is nil")
+  end
+
+  return {
+    ["path"] = path,
+    ["grouping"] = grouping,
+    ["multiplier"] = multiplier,
+    ["additive"] = additive,
+    ["values"] = values,
+    ["type"] = type,
+    ["processed"] = processed,
+  }
+
+end
+
 
 local PointCloudData = {}
 function PointCloudData:new(location, time)
@@ -437,6 +489,8 @@ function PointCloudData:new(location, time)
       ["rotation"]=false,
       ["translation"]=false,
       ["index"]=false,
+      ["skip"]=false,
+      ["hide"]=false,
       ["points"]=false,
       ["matrix"]=false,
       ["rotationX"]=false,
@@ -571,6 +625,27 @@ function PointCloudData:new(location, time)
 
   end
 
+  function attrs:is_point_rendered(pindex)
+    --[[
+    Return false is the point at given index must not be created.
+
+    Returns:
+      bool:
+    ]]
+    local data = self:get_attr_value("skip")
+    if not data then
+      return true
+    end
+
+    for _, ignored_index in ipairs(data) do
+      if pindex == ignored_index then
+        return false
+      end
+    end
+
+    return true
+  end
+
   function attrs:get_instance_source_data(pindex)
     --[[
     Return the instance source data to use at the given point.
@@ -641,15 +716,72 @@ function PointCloudData:new(location, time)
     end
 
     for i, token in ipairs({"rotationX", "rotationY", "rotationZ"}) do
-      self["common"][token] = {
-        ["path"] = "$rotation",
-        ["grouping"] = 4,
-        ["multiplier"] = self.common.rotation.multiplier,
-        ["additive"] = self.common.rotation.additive,
-        ["values"] = rall_data[i][1],
-        ["type"] = self.common.rotation.type
-      }
+      self["common"][token] = build_attr_structure(
+        "$rotation",
+        4,
+        self.common.rotation.multiplier,
+        self.common.rotation.additive,
+        rall_data[i][1],
+        self.common.rotation.type,
+        nil
+      )
     end
+
+  end
+
+  function attrs:convert_skip_n_hide()
+    --[[
+    Convert the common.skip token if present to the common.hide token.
+    Or the inverse: converse <hide> to <skip>.
+    The <hide> token take over the <skip> token if both specified !
+
+    Execute after the <validate> method.
+    ]]
+
+    local pcvalues = {}
+
+    if self.common.hide then
+
+      for i, hidden in ipairs(self.common.hide.values) do
+        if hidden == 1 then
+          pcvalues[#pcvalues + 1] = i
+        end
+      end
+
+      self["common"]["skip"] = build_attr_structure(
+        self.common.hide.path,
+        1,
+        1,
+        0,
+        pcvalues,
+        IntAttribute,
+        pcvalues
+      )
+
+    elseif self.common.skip then
+
+      -- build a first time the hide table, all points are visible
+      for i=1, self.point_count do
+        pcvalues[i] = 0
+      end
+      -- iterate through point to skip and set them on <pcvalues>
+      for _, to_hide in ipairs(self.common.skip.values) do
+        pcvalues[to_hide] = 1
+      end
+
+      self["common"]["hide"] = build_attr_structure(
+        self.common.skip.path,
+        1,
+        1,
+        0,
+        pcvalues,
+        IntAttribute,
+        -- can be nil so not created
+        pcvalues
+      )
+
+    end
+
 
   end
 
@@ -757,16 +889,16 @@ function PointCloudData:new(location, time)
       -- process special cases here --------------------
       -- none yet
 
-      self["arbitrary"][target] = {
-        ["additional"] = additional,
-        ["path"] = path,
-        ["grouping"] = grouping,
-        ["multiplier"] = multiplier,
-        ["additive"] = additive,
-        -- ! values should always be a numerical index table.
-        ["values"] = pcvalues,
-        ["type"] = value_type
-      }
+      self["arbitrary"][target] = build_attr_structure(
+        path,
+        grouping,
+        multiplier,
+        additive,
+        pcvalues,
+        value_type,
+        nil
+      )
+      self["arbitrary"][target]["additional"] = additional
 
     end
 
@@ -836,23 +968,31 @@ function PointCloudData:new(location, time)
         self["point_count"] = #pointsvalue + additive
         additive = 0
 
+      elseif token == "index" or token == "skip" then
+        -- for <index> and <skip> token, make sure to convert grouping to 1
+        -- the last index from the group is used ({2,2,<2>})
+        for pointindex=1, #pcvalues / grouping do
+          pointsvalue[pointindex] = pcvalues[pointindex * grouping]
+        end
+        pcvalues = pointsvalue
+        grouping = 1
+
       end
       -- force transform token to use doubles
       if transform_tokens[token] ~= nil then
         value_type = DoubleAttribute
       end
 
-    self["common"][token] = {
-      ["path"] = path,
-      ["grouping"] = grouping,
-      ["multiplier"] = multiplier,
-      ["additive"] = additive,
-      -- value should always be a numerical index table
-      ["values"] = pcvalues,
-      ["type"] = value_type,
+    self["common"][token] = build_attr_structure(
+      path,
+      grouping,
+      multiplier,
+      additive,
+      pcvalues,
+      value_type,
       -- can be nil so not created
-      ["processed"] = processed,
-    }
+      processed
+    )
 
     end
 
@@ -865,6 +1005,7 @@ function PointCloudData:new(location, time)
     Verify that self table is properly built.
     Also clean the unusable attributes.
     TODO see if arbitrary is also needed to be validated
+    TODO add hide and skipe verification
     ]]
 
     -- attr points must always exists
@@ -1017,6 +1158,7 @@ function PointCloudData:new(location, time)
 
     -- rebuild rotation attributes
     self:convert_rotation2rotationaxis()
+    self:convert_skip_n_hide()
 
     local value
     local stime = os.clock()
@@ -1077,7 +1219,7 @@ function InstancingHierarchical:new(point_data)
     -- /!\ perfs
     for pid=0, self.pdata.point_count - 1 do
       instance = InstanceHierarchical:new(self.name_tmp, pid)
-      instance:build_from_pdata(point_data)
+      instance:build_from_pdata(self.pdata)
       instance:finalize()
     end
 

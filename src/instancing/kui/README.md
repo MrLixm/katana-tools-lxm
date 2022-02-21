@@ -1,6 +1,6 @@
 # Katana Uber Instancing (kui)
 
-![lua](https://img.shields.io/badge/type-lua-blue)
+![Lua](https://img.shields.io/badge/Lua-000090?logo=lua&logoColor=white) ![Katana version](https://img.shields.io/badge/Katana-4.0+-FCB123?colorA=2e3440&logo=katana&logoColor=white) ![maintained - yes](https://img.shields.io/badge/maintained-yes-blue)
 
 Lua scripts designed for Katana OpScript feature. Trying to provide a flexible
 solution for instancing based on point-cloud locations. 
@@ -10,6 +10,10 @@ solution for instancing based on point-cloud locations.
 # Features
 
 - Hierarchical and Array instancing.
+- Very flexible
+  - Quick Multiplication / offset
+  - Add arbitrary attributes on the fly
+
 - Logging and error handling.
 - Minimal performance loss compared to more straightforward solutions.
 
@@ -19,39 +23,52 @@ solution for instancing based on point-cloud locations.
 ## Source Attributes
 
 The script is able to support a lot of point-cloud configurations thanks to
-pre-defined attributes that must be created on the source location :
-
-- `instancing.settings.index_offset` (int) : value that will be removed to the
-`[1]` attribute of `instancing.data.sources`.
+pre-defined attributes that must be created on the source location (the point-cloud) :
 
 - `instancing.data.sources` (string array) :
   - `[0]` = instance source location.
   - `[1]` = instance source index.
-  - `[2]` = proxy geometry location (optional).
-
 - `instancing.data.common` (string array) :
-    These attributes are the most common ones like rotation, matrix, scale, ...
+  These attributes are the most common ones like rotation, matrix, scale, ...
   - `[0]` = attribute path relative to the source.
   - `[1]` = token to specify what kind of data [0] corresponds to.
   - `[2]` = value grouping : how much value belongs to an individual point.
-  - `[3]` = value multiplier : quick way to multiply values.
-
+  - `[3]` = value multiplier : quick way to multiply all values.
+  - `[4]` = value add : quick way to offset all values by adding/subtracting a value.
 - `instancing.data.arbitrary` (string array) :
-    Only you know why this attribute will be useful, they will just be transfered
-    to the instance for whatever you need them for.
+  Only you know why this attribute will be useful, they will just be transfered
+  to the instance for whatever you need them for.
   - `[0]` = attribute path relative to the source.
   - `[1]` = target attribute path relative to the instance.
   - `[2]` = value grouping : how much value belongs to an individual point.
   - `[3]` = value multiplier : quick way to multiply values.
-  - `[4]` = additional attributes that must be created on instance. Defined as a Lua table.
+  - `[4]` = value add : quick way to offset all values by adding/subtracting a value.
+  - `[5]` = (optional) additional attributes that must be created on instance. Must be a valid Lua table.
 
-See under for detailed explanations.
+*See under for detailed explanations.*
+
+### values quick modification
+
+When using the multiplier, or additive attribute, final value is processed as such :
+
+```
+value = value * multiplier + additive
+```
+
+So basic maths, use 1 for multiplier and 0 for additive if no modification is needed.
+
+
 
 ### instancing.data.sources
 
-#### column 2
+#### column 0
 
-TODO, see if this is keeped.
+Instance Source's scene graph location to use.
+
+#### column 1 
+Instance Source's corresponding index.
+
+**Index is excepted to start at 0 (mostly for `array` method)**
 
 
 ### instancing.data.common
@@ -61,6 +78,8 @@ List of supported tokens for column `[1]`
 ```
 $points
 $index
+$skip
+$hide
 $matrix
 $scale
 $translation
@@ -72,21 +91,46 @@ $rotationZ
 
 #### points
 
-Is mandatory.
+ ![mandatory](https://img.shields.io/badge/mandatory-f03e3e)
 
 Only used to determine the number of individuals points using :
 ```python
-length(points.values) / points.grouping * points.multiplier
+length(points.values) / points.grouping * points.multiplier + points.additive
 ```
 
+This mean you could use any attribute to determine how much points there is (but usually it is `geometry.point.P`)
+
+As we saw above, in this case the multiplier increase the number of points (to use in case of `$points` differs with the length of other tokens).
 
 #### index
 
-- `Grouping` can be any. (excepted to be usually 3 or 1 thought)
+- `Grouping` can be any. (excepted to be usually 3 or 1 thought). (The values are converted to `grouping=1` internally anyway.)
 
-Must correspond to the index values used in `instancing.data.sources`.
-If you need to offset these values you can offset `instancing.data.sources` 
-indexes instead by specifying `instancing.settings.index_offset`.
+**Index is excepted to start at 0 (mostly for `array` method)**
+
+If you need to offset the index you can specify it in the `[5]` column. `-1` to substract 1 or `1` to add 1. (`0` if not needed)
+
+Final processed value must correspond to the index values used in `instancing.data.sources`.
+
+
+#### skip
+
+- `Grouping` can be any. (excepted to be usually 3 or 1 thought).
+   (The values are converted to `grouping=1` internally anyway.)
+
+List of points index to skip (don't render). 
+For *hierarchical* the instance location is just not generated while for
+*array* the values are copied to the `geometry.instanceSkipIndex` attribute.
+
+
+#### hide
+
+- `Grouping` must be 1.
+
+Table where each index correspond to a point and the value wheter it's hiden
+or not. Where 1=hidden, 0=visible.
+
+_Multiplier and additive are ignored._
 
 
 #### matrix
@@ -159,13 +203,16 @@ Here is an example for an arbitrary `randomColor` attribute:
 ⚠ You must now that this parameter has a potential security flaw as everything inside is compiled to Lua code using `loadstring("return "..content)` where `content` is the string submitted.
 
 
-#### User Arguments
+## User Arguments
 
-##### `user.pointcloud_sg`
+
+### Hierarchical
+
+#### `user.pointcloud_sg`
 
 Scene graph location of the source (pointcloud)
 
-##### `user.instance_name`
+#### `user.instance_name`
 
 Naming template used for instances. 3 tokens available :
 
@@ -175,11 +222,18 @@ Naming template used for instances. 3 tokens available :
 - `$sourceindex` : index attribute that was used to determine the instance
 source to pick.
 
+### Array
+
+#### `user.pointcloud_sg`
+
+Scene graph location of the source (pointcloud)
+
+
 ## Misc
 
-The code use Lua tables that cannot store more than 2e27 (134 million) values.
+The code use Lua tables that cannot store more than 2^27 (134 million) values.
 I hope you never reach this amount of values. (something like 44mi points
-with XYZ values).
+with XYZ values and 8,3 mi points for a Matrix attribute).
 
 
 # Performances
@@ -191,14 +245,22 @@ TODO
 
 ## Comments
 
-Docstrings can be a bit confusing as sometimes `instance` is referring to the Lua class object that is instanced, and sometimes to the Katana instance object.
+- Docstrings can be a bit confusing as sometimes `instance` is referring to the Lua class object that is instanced, and sometimes to the Katana instance object.
 
-When you see `-- /!\ perfs` means the bloc might be run a heavy amount of time and
-had to be written with this in mind.
+- When you see `-- /!\ perfs` means the bloc might be run a heavy amount of time and
+  had to be written with this in mind.
+
+### Implementing a new attribute
+
+TODO
 
 ## PointCloudData
 
-Here is a look at what some attributes looks like
+Here is a look at what some attributes look like. There is no difference between hierarchical and array for attributes stored. Only methods varies.
+
+`common` and `arbitrary` share the same structure except `arbitrary` has an additional attribute `additional` (and key is not a token).
+
+### attrs
 
 ```lua
 -- attributes at init time  
@@ -210,6 +272,8 @@ local attrs = {
       ["rotation"]=false,
       ["translation"]=false,
       ["index"]=false,
+      ["skip"]=false,
+      ["hide"]=false,
       ["points"]=false,
       ["matrix"]=false,
       ["rotationX"]=false,
@@ -223,44 +287,45 @@ local attrs = {
 
 ```
 
-### sources
+### attrs.sources
 ```lua
   sources = {
-    "indexN"={
+    ["indexN"]={
       ["path(str)"]="scene graph location of the instance source",
-      ["index(num)"]="index it's correspond to on the pointCloud (offset has been applied), same as the parent key.",
-      ["proxy(Optional[str])"]="proxy geometry location",
-      ["attrs(table)"] =  
-    }
+      ["index(num)"]="index it's correspond to on the pointCloud, same as the parent key (indexN).",
+      ["attrs(table)"] = "Group of local attribute from the instance source location to copy on the instance"
+    },
 	...
   }
 ```
-### arbitrary
+### attrs.arbitrary
 ```lua
   arbitrary = {
     ["target attribute path"]={
       ["path(str)"]= "attribute path relative to the source.",
       ["grouping(num)"]= "how much value belongs to an individual point.",
       ["multiplier(num)"]= "quick way to multiply values.",
+      ["additive(num)"]= "quick way to offset all values by adding/subtracting a value.",
       ["values(table)"]= "table of value gathered on the source using the above path",
       ["type(DataAttribute)"]= "DataAttribute class not instanced that correspond to values",
-      ["processed(DataAttribute)"] = "DataAttribute class INSTANCED that correspond to <values> * <multiplier>"
+      ["processed(table)"] = "Values but processed. Correspond to <values> * <multiplier> + <additive>.",
       ["additional(str)"]= "lua table stored in a string that contains aditional attributes to create on instance"
-    }
+    },
     ...
   }
 ```
-### common
+### attrs.common
 ```lua
   common = {
     ["token (without the $)"]={
       ["path(str)"]= "attribute path relative to the source.",
       ["grouping(num)"]= "how much value belongs to an individual point.",
       ["multiplier(num)"]= "quick way to multiply values.",
+      ["additive(num)"]= "quick way to offset all values by adding/subtracting a value.",
       ["values(table)"]= "table of value gathered on the source using the above path",
       ["type(DataAttribute)"]= "DataAttribute class not instanced that correspond to values",
-      ["processed(table)"] = "Values but processed. Correspond to <values> * <multiplier>."
-    }
+      ["processed(table)"] = "Values but processed. Correspond to <values> * <multiplier> + <additive>."
+    },
     ...
   }
 ```
