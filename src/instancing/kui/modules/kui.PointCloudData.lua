@@ -3,144 +3,17 @@ version=0.0.1
 todo
 ]]
 
-local logging = require "lllogger"
+local logging = require("lllogger")
 local logger = logging:new("kui.PointCloudData")
 logger:set_level("debug")
 logger.formatting:set_tbl_display_functions(false)
 logger.formatting:set_str_display_quotes(true)
 
-
---[[ __________________________________________________________________________
-  LUA UTILITIES
-]]
+local utils = require("kui.utils")
 
 -- we make some global functions local as this will improve performances in
 -- heavy loops. Note: this is not that usefull for PointCloudData
 local tostring = tostring
-local select = select
-local tableconcat = table.concat
-
-local function conkat(...)
-  --[[
-  The loop-safe string concatenation method.
-  ]]
-  local buf = {}
-  for i=1, select("#",...) do
-    buf[ #buf + 1 ] = tostring(select(i,...))
-  end
-  return tableconcat(buf)
-end
-
-local function logerror(...)
-  --[[
-  log an error first then stop the script by raising a lua error()
-
-  Args:
-    ...(any): message to log, composed of multiple arguments that will be
-      converted to string using tostring()
-  ]]
-  local logmsg = conkat(...)
-  logger:error(logmsg)
-  error(logmsg)
-
-end
-
-local function logassert(toassert, ...)
-  --[[
-  Check is toassert is true else log an error.
-
-  Args:
-    ...(any): arguments used for log's message. Converted to string.
-  ]]
-  if not toassert then
-    logerror(...)
-  end
-  return toassert
-end
-
-
---[[ __________________________________________________________________________
-  Katana UTILITIES
-]]
-
-
-local function get_attribute_class(kattribute)
-  --[[
-  Returned a non-instanced version of the class type used by the given arg.
-
-  Args:
-    kattribute(IntAttribute or FloatAttribute or DoubleAttribute or StringAttribute)
-  Returns:
-    table: DataAttribute
-  ]]
-  if Attribute.IsInt(kattribute) == true then
-    return IntAttribute
-  elseif Attribute.IsFloat(kattribute) == true then
-    return FloatAttribute
-  elseif Attribute.IsDouble(kattribute) == true then
-    return DoubleAttribute
-  elseif Attribute.IsString(kattribute) == true then
-    return StringAttribute
-  else
-    logerror(
-      "[get_attribute_class] passed attribute <",
-      kattribute,
-      ">is not supported."
-    )
-  end
-end
-
-
-local function get_loc_attr(location, attr_path, time, default)
-  --[[
-  Get the given attribute on the location at given time.
-  Raise an error is nil result is found or return <default> if specified.
-
-  If default is not nil and the attribute is not found, it is instead returned.
-
-  Args:
-    location(str): scene graph location to extract teh attribute from
-    attr_path(str): path of the attribute on the location
-    time(int): frame to extract the value from
-    default(any or nil): value to return if attribute not found.
-  Returns:
-    table: table of 2: {value table, table representing the original data type}
-  ]]
-
-  local lattr = Interface.GetAttr(attr_path, location)
-
-  if not lattr then
-
-    if default ~= nil then
-      return default
-    end
-
-    logerror(
-      "[get_loc_attr] Attr <",attr_path,"> not found on source <",location,">."
-    )
-
-  end
-
-  local lattr_type = get_attribute_class(lattr)
-
-  lattr = lattr:getNearestSample(time)
-
-  if not lattr then
-
-    if default ~= nil then
-      return default
-    end
-
-    logerror(
-      "[get_loc_attr] Attr <", attr_path, "> is nil on source <", location,
-      "> at time=", time
-    )
-
-  end
-
-  return lattr, lattr_type
-
-end
 
 
 --[[ __________________________________________________________________________
@@ -177,14 +50,14 @@ function Tokens:check_token(token)
   ]]
   for token_supported, _ in pairs(self.list) do
     -- add the <$> in font of the known token for comparison with the arg
-    token_supported = conkat("$", token_supported)
+    token_supported = utils:conkat("$", token_supported)
     -- if similar retur the arg token without the <$>
     if token_supported == token then
       return token:gsub("%$", "")
     end
   end
 
-  logerror(
+  utils:logerror(
     "[PointCloudData][check_token] invalid token <",
       token,"> on source <",self.location,">."
   )
@@ -221,7 +94,7 @@ local function build_attr_structure(
   if path == nil or grouping==nil or multiplier==nil or additive==nil or
   values==nil or type==nil then
     -- shittiest error message but don't want to complexify the function
-    logerror("[build_attr_structure] One of the supplied arguments is nil")
+    utils:logerror("[build_attr_structure] One of the supplied arguments is nil")
   end
 
   return {
@@ -303,7 +176,7 @@ function PointCloudData:new(location, time)
     if self.__attrdata == nil then
       self.__attrdata = self["arbitrary"][attr_name]
       if self.__attrdata == nil then
-        logerror(
+        utils:logerror(
           "[PointCloudData][get_value4index]",
           "Can't find attribute <",
           attr_name,
@@ -389,7 +262,7 @@ end
     -- TODO I don't trust getValue to return only a num, test this.
     index = index:getValue()
     if type(index) ~= "number" then
-      logerror("[PointCloudData][get_index_at_point] index:getValue() didn't \z
+      utils:logerror("[PointCloudData][get_index_at_point] index:getValue() didn't \z
       returned a number as expected. Report this issue to the developer.")
     end
 
@@ -439,7 +312,7 @@ end
     local index = self:get_index_at_point(pid)
     local out = self["sources"][tostring(index)]
     if out == nil then
-      logerror(
+      utils:logerror(
         "[PointCloudData][get_instance_source_data] An error occured when getting index for current point <",
         pid,
         ">. Corresponding index found was <",
@@ -593,7 +466,7 @@ end
     ]]
 
       -- get the attribute on the pc
-    local data_sources = get_loc_attr(
+    local data_sources = utils:get_loc_attr(
         self.location,
         "instancing.data.sources",
         self.time
@@ -630,7 +503,7 @@ end
     ]]
 
       -- get the attribute on the pc
-    local data_arbtr = get_loc_attr(
+    local data_arbtr = utils:get_loc_attr(
         self.location,
         "instancing.data.arbitrary",
         self.time
@@ -661,15 +534,16 @@ end
       end
       additional = data_arbtr[AttrGrp.arbitrary*i+6]
       if additional then
-        additional = logassert(
-            loadstring(conkat("return ", additional)),
-            "Error while converting <instancing.data.arbitrary> column 5/5 to Lua.",
+        additional = utils:logassert(
+            loadstring(utils:conkat("return ", additional)),
+            "[PointCloudData][build_arbitrary] Error while converting \z
+            <instancing.data.arbitrary> column 5/5 to Lua.",
             " Issue in: ",
             additional
         )
         additional = additional()  -- this should be a table
       end
-      pcvalues, value_type = get_loc_attr(self.location, path, self.time)
+      pcvalues, value_type = utils:get_loc_attr(self.location, path, self.time)
 
       -- process special cases here --------------------
       -- none yet
@@ -703,7 +577,7 @@ end
     ]]
 
       -- get the attribute on the pc
-    local data_common = get_loc_attr(
+    local data_common = utils:get_loc_attr(
         self.location,
         "instancing.data.common",
         self.time
@@ -733,7 +607,7 @@ end
       if not additive then
         additive = 0
       end
-      pcvalues, value_type = get_loc_attr(self.location, path, self.time)
+      pcvalues, value_type = utils:get_loc_attr(self.location, path, self.time)
       processed = nil
 
       -- process special cases here --------------------
@@ -794,7 +668,7 @@ end
 
     -- attr points must always exists
     if not self.common.points then
-      logerror(
+      utils:logerror(
           "[PointCloudData][validate] Missing token $points on source <",
           self.location,
           ">."
@@ -803,7 +677,7 @@ end
 
     -- we need at least one instance source
     if not self.sources then
-      logerror(
+      utils:logerror(
           "[PointCloudData][validate] No instance sources specified \z
            for source <",
           self.location,
@@ -813,7 +687,7 @@ end
 
     -- instance sources index must start at 0
     if self.sources["0"] == nil then
-      logerror(
+      utils:logerror(
         "[PointCloudData][validate] No index 0 found in <sources> attributes."
       )
     end
@@ -821,7 +695,7 @@ end
     -- every instance source need the index to be declared
     for _, isource_data in ipairs(self.sources) do
       if not isource_data["index"] then
-        logerror(
+        utils:logerror(
             "[PointCloudData][validate] No index specified for \z
             instance source <",
             self.isource_data["path"],
@@ -873,7 +747,7 @@ end
           self.common.rotationY or
           self.common.rotationZ
       ) then
-        logerror(
+        utils:logerror(
           "[PointCloudData][validate] Source <", self.location,
           "> doesn't have all the <rotationX/Y/Z> tokens declared \z
           (but declare currently at least one)."
@@ -897,7 +771,7 @@ end
     -- verify grouping values
     if self.common.rotation then
       if self.common.rotation.grouping ~= 3 then
-        logerror(
+        utils:logerror(
           "[PointCloudData][validate] Source <", self.location,
           "> $rotation token only accepts 3 as grouping, not ",
           self.common.rotation.grouping
@@ -906,7 +780,7 @@ end
     end
     if self.common.matrix then
       if self.common.matrix.grouping ~= 16 then
-        logerror(
+        utils:logerror(
           "[PointCloudData][validate] Source <", self.location,
           "> $matrix token only accepts 16 as grouping, not ",
           self.common.matrix.grouping
@@ -915,7 +789,7 @@ end
     end
     if self.common.translation then
       if self.common.translation.grouping ~= 3 then
-        logerror(
+        utils:logerror(
           "[PointCloudData][validate] Source <", self.location,
           "> $translation token only accepts 3 as grouping, not ",
           self.common.translation.grouping
@@ -931,7 +805,7 @@ end
         --we check first that the <grouping> and <points> attribute seems valid
         attrlength = #(attrdata.values) / attrdata.grouping
         if attrlength ~= self.point_count then
-          logerror(
+          utils:logerror(
           "[PointCloudData][validate] Common attribute <", attrname,
           "> as an odd number of values : ", tostring(#(attrdata.values)),
           " / ", tostring(attrdata.grouping), " = ", attrlength,
@@ -983,7 +857,11 @@ end
     end
 
     stime = os.clock() - stime
-    logger:debug("[PointCloudData] Finished in ",stime,"s for pointcloud <",self.location,">.")
+    logger:debug(
+      "[PointCloudData][finalize] Finished in ",
+      stime,
+      "s for pointcloud <",self.location,">."
+    )
 
   end
 

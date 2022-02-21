@@ -1,5 +1,5 @@
 --[[
-version=0.0.14
+version=0.0.15
 todo
 ]]
 
@@ -9,88 +9,27 @@ todo
 -- run-time won is negligable (~7%), memory not measured.
 if Interface.AtRoot() then
 
-local logging = require "lllogger"
+local logging = require("lllogger")
 local logger = logging:new("kui.hierarchical")
 logger:set_level("debug")
 logger.formatting:set_tbl_display_functions(false)
 logger.formatting:set_str_display_quotes(true)
 
-local PointCloudData = require "kui.PointCloudData"
+local PointCloudData = require("kui.PointCloudData")
+local utils = require("kui.utils")
 
---[[ __________________________________________________________________________
-  LUA UTILITIES
-]]
+local OPARG = Interface.GetOpArg()
+
 -- we make some global functions local as this will improve performances in
 -- heavy loops
 local tostring = tostring
 local stringformat = string.format
-local select = select
-local tableconcat = table.concat
-
-local function conkat(...)
-  --[[
-  The loop-safe string concatenation method.
-  ]]
-  local buf = {}
-  for i=1, select("#",...) do
-    buf[ #buf + 1 ] = tostring(select(i,...))
-  end
-  return tableconcat(buf)
-end
-
-local function logerror(...)
-  --[[
-  log an error first then stop the script by raising a lua error()
-
-  Args:
-    ...(any): message to log, composed of multiple arguments that will be
-      converted to string using tostring()
-  ]]
-  local logmsg = conkat(...)
-  logger:error(logmsg)
-  error(logmsg)
-
-end
 
 
 --[[ __________________________________________________________________________
-  Katana UTILITIES
+  API
 ]]
 
-local OPARG = Interface.GetOpArg()
-
-local function get_user_attr(time, name, default_value)
-    --[[
-    Return an OpScipt user attribute.
-    If not found return the default_value. (unless asked to raise an error)
-
-    Args:
-        time(int): frame the attribute must be queried at
-        name(str): attribute location (don't need the <user.>)
-        default_value(any): value to return if user attr not found
-          you can use the special token <$error> to raise an error instead
-    Returns:
-        table: Katana DataAttribute or default value wrap in a table
-    ]]
-    local argvalue = Interface.GetOpArg(conkat("user.",name))
-
-    if argvalue then
-      return argvalue:getNearestSample(time)
-
-    elseif default_value=="$error" then
-      logerror("[get_user_attr] user attribute <",name,"> not found.")
-
-    else
-      return { default_value }
-
-    end
-
-end
-
-
---[[ __________________________________________________________________________
-  CONSTANTS
-]]
 
 -- // Used by InstanceHierarchical
 -- key is the token to query and value is the target attribute path
@@ -105,11 +44,6 @@ local token_target = {
   { ["token"]="scale", ["target"]="xform.group0.scale" },
   { ["token"]="matrix", ["target"]="xform.group0.matrix" },
 }
-
-
---[[ __________________________________________________________________________
-  API
-]]
 
 
 local InstanceHierarchical = {}
@@ -165,7 +99,7 @@ function InstanceHierarchical:new(name, id)
     end
 
     self.gb:set(
-        conkat("childAttrs.", attr_path),
+        utils:conkat("childAttrs.", attr_path),
         attr_value
     )
   end
@@ -242,7 +176,7 @@ function InstanceHierarchical:new(name, id)
 
     -- safety check that $id is present
     if not out:match("%$id") then
-      logerror(
+      utils:logerror(
           "[InstanceHierarchical][get_name] Passed name template <",
           out,
           "> doesn't have the mandatory <$id> token."
@@ -273,7 +207,7 @@ function InstanceHierarchical:new(name, id)
     -- Assign the tokens to their value
     -- key is a regex, value must be a string
     local tokens  = {
-      ["%$id%d*"] = stringformat(conkat("%0", digits, "d"), self.id),
+      ["%$id%d*"] = stringformat(utils:conkat("%0", digits, "d"), self.id),
       ["%$sourcename"] = sourcename,
       ["%$sourceindex"] = sourceindex
     }
@@ -361,8 +295,8 @@ local function create_instances()
   local stime = os.clock()
   local time = Interface.GetCurrentTime() -- int
 
-  local u_pointcloud_sg = get_user_attr( time, "pointcloud_sg", "$error" )[1]
-  local u_instance_name = get_user_attr( time, "instance_name", "$error" )[1]
+  local u_pointcloud_sg = utils:get_user_attr( time, "pointcloud_sg", "$error" )[1]
+  local u_instance_name = utils:get_user_attr( time, "instance_name", "$error" )[1]
 
   -- process the source pointcloud
   logger:info("Started processing source <", u_pointcloud_sg, ">.")
@@ -387,9 +321,10 @@ end
 print("\n")
 create_instances()
 
-  --end if Interface.AtRoot() first condition
-  -----------------------------------------------------------------------------
+--end first condition of <if Interface.AtRoot()>
+-------------------------------------------------------------------------------
 else
+  -- when we are not at root :
 
   local function finalize_instances()
     --[[
@@ -416,6 +351,6 @@ else
 
   finalize_instances()
 
-end
 --end if Interface.AtRoot()
+end
 

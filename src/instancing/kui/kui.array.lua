@@ -10,79 +10,12 @@ logger.formatting:set_tbl_display_functions(false)
 logger.formatting:set_str_display_quotes(true)
 
 local PointCloudData = require "kui.PointCloudData"
+local utils = require("kui.utils")
 
 
 --[[ __________________________________________________________________________
-  LUA UTILITIES
+  API
 ]]
--- we make some global functions local as this will improve performances in
--- heavy loops
-local tostring = tostring
-local select = select
-local tableconcat = table.concat
-
-local function conkat(...)
-  --[[
-  The loop-safe string concatenation method.
-  ]]
-  local buf = {}
-  for i=1, select("#",...) do
-    buf[ #buf + 1 ] = tostring(select(i,...))
-  end
-  return tableconcat(buf)
-end
-
-local function logerror(...)
-  --[[
-  log an error first then stop the script by raising a lua error()
-
-  Args:
-    ...(any): message to log, composed of multiple arguments that will be
-      converted to string using tostring()
-  ]]
-  local logmsg = conkat(...)
-  logger:error(logmsg)
-  error(logmsg)
-
-end
-
---[[ __________________________________________________________________________
-  Katana UTILITIES
-]]
-
-local function get_user_attr(time, name, default_value)
-    --[[
-    Return an OpScipt user attribute.
-    If not found return the default_value. (unless asked to raise an error)
-
-    Args:
-        time(int): frame the attribute must be queried at
-        name(str): attribute location (don't need the <user.>)
-        default_value(any): value to return if user attr not found
-          you can use the special token <$error> to raise an error instead
-    Returns:
-        table: Katana DataAttribute or default value wrap in a table
-    ]]
-    local argvalue = Interface.GetOpArg(conkat("user.",name))
-
-    if argvalue then
-      return argvalue:getNearestSample(time)
-
-    elseif default_value=="$error" then
-      logerror("[get_user_attr] user attribute <",name,"> not found.")
-
-    else
-      return { default_value }
-
-    end
-
-end
-
-
---[[ __________________________________________________________________________
-  CONSTANTS
-]]
-
 
 -- // Used by InstancingArray
 -- key is the token to query and value is the target attribute path
@@ -99,11 +32,6 @@ local token_target = {
   { ["token"]="scale", ["target"]="geometry.instanceScale" },
   { ["token"]="matrix", ["target"]="geometry.instanceMatrix" },
 }
-
-
---[[ __________________________________________________________________________
-  API
-]]
 
 
 local InstancingArray = {}
@@ -175,14 +103,16 @@ local function run()
   local stime = os.clock()
   local time = Interface.GetCurrentTime() -- int
 
-  local u_pointcloud_sg = get_user_attr( time, "pointcloud_sg", "$error" )[1]
+  local u_pointcloud_sg = utils:get_user_attr(
+      time, "pointcloud_sg", "$error"
+  )[1]
 
   -- process the source pointcloud
-  logger:info("Started processing source <", u_pointcloud_sg, ">.")
+  logger:info("[run] Started processing source <", u_pointcloud_sg, ">.")
   local pointdata
   pointdata = PointCloudData:new(u_pointcloud_sg, time)
   pointdata:build()
-  logger:info("Finished processing source <", u_pointcloud_sg, ">.",
+  logger:info("[run] Finished processing source <", u_pointcloud_sg, ">.",
       pointdata.point_count, " points found.")
 
   logger:debug("pointdata = \n", pointdata, "\n")
@@ -192,7 +122,9 @@ local function run()
   instance:build()
 
   stime = os.clock() - stime
-  logger:info("Finished in ",stime,"s for pointcloud <",u_pointcloud_sg,">.")
+  logger:info(
+      "[run] Finished in ",stime,"s for pointcloud <",u_pointcloud_sg,">."
+  )
 
 end
 
