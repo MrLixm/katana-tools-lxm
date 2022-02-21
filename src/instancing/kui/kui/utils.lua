@@ -3,13 +3,15 @@ version=0.0.1
 todo
 ]]
 
-local logging = require "lllogger"
+local logging = require("lllogger")
 local logger = logging:new("kui.utils")
+-- log message from here can only be error
 logger.formatting:set_tbl_display_functions(false)
 logger.formatting:set_str_display_quotes(true)
 
 
-local __module = {}
+local _M = {}
+_M["set_logger_level"] = logger.set_level
 
 --[[ __________________________________________________________________________
   LUA UTILITIES
@@ -21,7 +23,7 @@ local tostring = tostring
 local select = select
 local tableconcat = table.concat
 
-function __module:conkat(...)
+function _M:conkat(...)
   --[[
   The loop-safe string concatenation method.
   ]]
@@ -32,7 +34,7 @@ function __module:conkat(...)
   return tableconcat(buf)
 end
 
-function __module:logerror(...)
+function _M:logerror(...)
   --[[
   log an error first then stop the script by raising a lua error()
 
@@ -46,7 +48,7 @@ function __module:logerror(...)
 
 end
 
-function __module:logassert(toassert, ...)
+function _M:logassert(toassert, ...)
   --[[
   Check is toassert is true else log an error.
 
@@ -64,7 +66,7 @@ end
 ]]
 
 
-function __module:get_attribute_class(kattribute)
+function _M:get_attribute_class(kattribute)
   --[[
   Returned a non-instanced version of the class type used by the given arg.
 
@@ -91,7 +93,7 @@ function __module:get_attribute_class(kattribute)
 end
 
 
-function __module:get_loc_attr(location, attr_path, time, default)
+function _M:get_loc_attr(location, attr_path, time, default)
   --[[
   Get the given attribute on the location at given time.
   Raise an error is nil result is found or return <default> if specified.
@@ -143,7 +145,7 @@ function __module:get_loc_attr(location, attr_path, time, default)
 end
 
 
-function __module:get_user_attr(time, name, default_value)
+function _M:get_user_attr(time, name, default_value)
     --[[
     Return an OpScipt user attribute.
     If not found return the default_value. (unless asked to raise an error)
@@ -172,4 +174,4 @@ function __module:get_user_attr(time, name, default_value)
 end
 
 
-return __module
+return _M

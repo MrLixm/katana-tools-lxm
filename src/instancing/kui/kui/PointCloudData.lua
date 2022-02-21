@@ -12,7 +12,7 @@ logger.formatting:set_str_display_quotes(true)
 local utils = require("kui.utils")
 
 -- we make some global functions local as this will improve performances in
--- heavy loops. Note: this is not that usefull for PointCloudData
+-- heavy loops. Note: this is not that useful for PointCloudData
 local tostring = tostring
 
 
@@ -112,6 +112,7 @@ end
 
 
 local PointCloudData = {}
+PointCloudData["set_logger_level"] = logger.set_level -- for external modif
 function PointCloudData:new(location, time)
   --[[
   Represents attribute data holded on a pointcloud location. (or actually
@@ -152,7 +153,7 @@ function PointCloudData:new(location, time)
 
   -- build the common key with all the supported tokens
   for token_name, _ in pairs(Tokens.list) do
-    self["common"][token_name] = false
+    attrs.common[token_name] = false
   end
 
   function attrs:__get_attr_data(attr_name)

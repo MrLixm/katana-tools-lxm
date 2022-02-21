@@ -1,5 +1,5 @@
 --[[
-version=0.0.1
+version=0.0.2
 todo
 ]]
 
@@ -96,10 +96,12 @@ end
 
 -- processes ------------------------------------------------------------------
 
+
 local function run()
   --[[
   Create the instance
   ]]
+  print("\n")
   local stime = os.clock()
   local time = Interface.GetCurrentTime() -- int
 
@@ -128,5 +130,7 @@ local function run()
 
 end
 
-print("\n")
-run()
+return {
+  ["run"] = run,
+  ["set_logger_level"] = logger.set_level
+}

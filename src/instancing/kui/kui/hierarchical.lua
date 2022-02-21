@@ -1,19 +1,22 @@
 --[[
-version=0.0.15
+version=0.0.16
 todo
 ]]
 
-
--- 95% of the code is wrapped in this condition as it's absolutely not
--- needed when not at "AtRoot", dirty but works.
--- run-time won is negligable (~7%), memory not measured.
-if Interface.AtRoot() then
 
 local logging = require("lllogger")
 local logger = logging:new("kui.hierarchical")
 logger:set_level("debug")
 logger.formatting:set_tbl_display_functions(false)
 logger.formatting:set_str_display_quotes(true)
+
+
+local function run()
+
+-- 95% of the code is wrapped in this condition as it's absolutely not
+-- needed when not at "AtRoot", dirty but works.
+-- run-time won is negligable (~7%), memory not measured.
+if Interface.AtRoot() then
 
 local PointCloudData = require("kui.PointCloudData")
 local utils = require("kui.utils")
@@ -110,7 +113,7 @@ function InstanceHierarchical:new(name, id)
     at the current point index (id attribute).
     ]]
 
-    if not point_data:is_point_rendered(self.id) then
+    if not point_data:is_point_hidden(self.id) then
       self.__rendered = false
       return
     end
@@ -354,3 +357,10 @@ else
 --end if Interface.AtRoot()
 end
 
+--end run()
+end
+
+return {
+  ["run"] = run,
+  ["set_logger_level"] = logger.set_level
+}
