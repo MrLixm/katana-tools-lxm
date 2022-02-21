@@ -15,9 +15,8 @@ logger.formatting:set_str_display_quotes(true)
 ]]
 
 -- we make some global functions local as this will improve performances in
--- heavy loops
+-- heavy loops. Note: this is not that usefull for PointCloudData
 local tostring = tostring
-local stringformat = string.format
 local select = select
 local tableconcat = table.concat
 
@@ -152,18 +151,46 @@ end
 -- list of supported tokens with useful info used internally
 -- <is_transform==true> force use of DoubleAttribute for values.
 local Tokens = {
-      ["points"]       = { ["is_transform"]=false },
-      ["index"]        = { ["is_transform"]=false },
-      ["skip"]         = { ["is_transform"]=false },
-      ["hide"]         = { ["is_transform"]=false },
-      ["matrix"]       = { ["is_transform"]=true },
-      ["translation"]  = { ["is_transform"]=true },
-      ["scale"]        = { ["is_transform"]=true },
-      ["rotation"]     = { ["is_transform"]=true },
-      ["rotationX"]    = { ["is_transform"]=true },
-      ["rotationY"]    = { ["is_transform"]=true },
-      ["rotationZ"]    = { ["is_transform"]=true }
+      ["list"] = {
+        ["points"]       = { ["is_transform"]=false },
+        ["index"]        = { ["is_transform"]=false },
+        ["skip"]         = { ["is_transform"]=false },
+        ["hide"]         = { ["is_transform"]=false },
+        ["matrix"]       = { ["is_transform"]=true },
+        ["translation"]  = { ["is_transform"]=true },
+        ["scale"]        = { ["is_transform"]=true },
+        ["rotation"]     = { ["is_transform"]=true },
+        ["rotationX"]    = { ["is_transform"]=true },
+        ["rotationY"]    = { ["is_transform"]=true },
+        ["rotationZ"]    = { ["is_transform"]=true }
+      }
 }
+function Tokens:check_token(token)
+  --[[
+  Check if the given token is a valid token and if so return it without the $
+
+  Args:
+    token(str): string that should start with <$>
+    source(str): scene graph location where this token is stored
+  Returns:
+    str: token without the <$>
+  ]]
+  for token_supported, _ in pairs(self.list) do
+    -- add the <$> in font of the known token for comparison with the arg
+    token_supported = conkat("$", token_supported)
+    -- if similar retur the arg token without the <$>
+    if token_supported == token then
+      return token:gsub("%$", "")
+    end
+  end
+
+  logerror(
+    "[PointCloudData][check_token] invalid token <",
+      token,"> on source <",self.location,">."
+  )
+
+end
+
 
 -- expected number of value per different attribute on source
 local AttrGrp = {
@@ -228,7 +255,7 @@ function PointCloudData:new(location, time)
   Attributes:
     time(int): time at which attributes must be queried
     location(str): scene graph location of the pointcloud
-    common(table): keys are supported token value (+$)
+    common(table): keys are supported token value (without the $)
     sources(table): num keys
     arbitrary(table): keys are instance target attribute path
     __attrdata(table or false):
@@ -251,34 +278,8 @@ function PointCloudData:new(location, time)
   }
 
   -- build the common key with all the supported tokens
-  for token_name, _ in pairs(Tokens) do
+  for token_name, _ in pairs(Tokens.list) do
     self["common"][token_name] = false
-  end
-
-  function attrs:check_token(token)
-    --[[
-    Check if the given token is a valid token and if so return it without the $
-
-    Args:
-      token(str): string that should start with <$>
-      source(str): scene graph location where this token is stored
-    Returns:
-      str: token without the <$>
-    ]]
-    for token_supported, _ in pairs(Tokens) do
-      -- add the <$> in font of the known token for comparison with the arg
-      token_supported = conkat("$", token_supported)
-      -- if similar retur the arg token without the <$>
-      if token_supported == token then
-        return token:gsub("%$", "")
-      end
-    end
-
-    logerror(
-      "[PointCloudData][check_token] invalid token <",
-        token,"> on source <",self.location,">."
-    )
-
   end
 
   function attrs:__get_attr_data(attr_name)
@@ -322,10 +323,10 @@ function PointCloudData:new(location, time)
 
   end
 
-  function attrs:get_attr_value(attr_name, pindex)
+  function attrs:get_attr_value(attr_name, pid)
   --[[
   Return the value for the given attribute.
-  It can be a slice for the given pindex, or the entire values.
+  It can be a slice for the given pid, or the entire values.
   The value has already been processed and is a DataAttribute instance.
 
   Must be loop safe.
@@ -335,7 +336,7 @@ function PointCloudData:new(location, time)
       name for the key to query.
       Can be one of <common>/<arbiratry> or just <sources>.
 
-    pindex(int or nil):
+    pid(int or nil):
       point index: which point to use. If not specified return
       the whole table. !! starts at 0 !!
 
@@ -361,14 +362,14 @@ function PointCloudData:new(location, time)
   end
 
   -- no point specified, return all the values
-  if pindex == nil then
+  if pid == nil then
     self.__buffer2 = self.__attrdata["processed"]  -- table
   -- else return a slice of the table
   else
     self.__buffer2 = {}
     -- grouping usually vary between 1 and 16(matrices), so small loop.
     for i=1, self.__attrdata["grouping"] do
-      self.__buffer2[#self.__buffer2 + 1] = self.__attrdata["processed"][self.__attrdata["grouping"] * pindex + i]
+      self.__buffer2[#self.__buffer2 + 1] = self.__attrdata["processed"][self.__attrdata["grouping"] * pid + i]
     end
   end
 
@@ -377,26 +378,31 @@ function PointCloudData:new(location, time)
 
 end
 
-  function attrs:get_index_at_point(pindex)
+  function attrs:get_index_at_point(pid)
     --[[
     Return the index used at the given point.
 
     Returns:
       num:
     ]]
-    local index = self:get_attr_value("index", pindex)  -- DataAttribute
+    local index = self:get_attr_value("index", pid)  -- DataAttribute
     -- TODO I don't trust getValue to return only a num, test this.
     index = index:getValue()
+    if type(index) ~= "number" then
+      logerror("[PointCloudData][get_index_at_point] index:getValue() didn't \z
+      returned a number as expected. Report this issue to the developer.")
+    end
+
     return index
   end
 
-  function attrs:is_point_hidden(pindex)
+  function attrs:is_point_hidden(pid)
     --[[
     Return false is the point at given index must not be created (hidden).
     This is determined by using the <hide> token.
 
     Args:
-      pindex(int): point index: which point to use. !! starts at 0 !!
+      pid(int): point index: which point to use. !! starts at 0 !!
 
     Returns:
       bool: true if the point is hidden and thus should not be created
@@ -407,7 +413,7 @@ end
       return false
     end
 
-    if data[pindex + 1] == 1 then
+    if data[pid + 1] == 1 then
       return true
     end
 
@@ -415,7 +421,7 @@ end
 
   end
 
-  function attrs:get_instance_source_data(pindex)
+  function attrs:get_instance_source_data(pid)
     --[[
     Return the instance source data to use at the given point.
     Looks like this:
@@ -424,17 +430,18 @@ end
     Must be loop safe.
 
     Args:
-      pindex(int): point index: which point to use. !! starts at 0 !!
+      pid(int): point index: which point to use. !! starts at 0 !!
 
     Returns:
       table:
     ]]
-    local index = self:get_index_at_point(pindex)
+
+    local index = self:get_index_at_point(pid)
     local out = self["sources"][tostring(index)]
     if out == nil then
       logerror(
         "[PointCloudData][get_instance_source_data] An error occured when getting index for current point <",
-        pindex,
+        pid,
         ">. Corresponding index found was <",
         index,
         "> and return nil on self['sources']."
@@ -578,6 +585,11 @@ end
       [0] instance source location,
       [1] instance source index,
 
+    Notes:
+      the <sources> table has string keys for ease of use.
+      Performance difference with a numerical table has been measured but can
+      be ignored as too small benefits.
+
     ]]
 
       -- get the attribute on the pc
@@ -711,7 +723,7 @@ end
     for i=0, #data_common / AttrGrp.common - 1 do
 
       path = data_common[AttrGrp.common*i+1]
-      token = self:check_token(data_common[AttrGrp.common*i+2]) -- return without the "$" !
+      token = Tokens:check_token(data_common[AttrGrp.common*i+2]) -- return without the "$" !
       grouping = tonumber(data_common[AttrGrp.common*i+3])
       multiplier = tonumber(data_common[AttrGrp.common*i+4])
       if not multiplier then
@@ -752,7 +764,7 @@ end
 
       end
       -- force transform token to use doubles
-      if Tokens[token].is_transform == true then
+      if Tokens.list[token].is_transform == true then
         value_type = DoubleAttribute
       end
 
@@ -778,7 +790,6 @@ end
     Verify that self table is properly built.
     Also clean the unusable attributes.
     TODO see if arbitrary is also needed to be validated
-    TODO add hide and skipe verification
     ]]
 
     -- attr points must always exists
@@ -924,7 +935,7 @@ end
           "[PointCloudData][validate] Common attribute <", attrname,
           "> as an odd number of values : ", tostring(#(attrdata.values)),
           " / ", tostring(attrdata.grouping), " = ", attrlength,
-          " while $points=", self.point_count
+          " while point_count=", self.point_count
           )
         end
         -- end if attrdata is not false/nil

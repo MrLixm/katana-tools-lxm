@@ -15,7 +15,7 @@ logger:set_level("debug")
 logger.formatting:set_tbl_display_functions(false)
 logger.formatting:set_str_display_quotes(true)
 
-local PointCloudData = require "PointCloudData"
+local PointCloudData = require "kui.PointCloudData"
 
 --[[ __________________________________________________________________________
   LUA UTILITIES
@@ -52,52 +52,12 @@ local function logerror(...)
 
 end
 
-local function logassert(toassert, ...)
-  --[[
-  Check is toassert is true else log an error.
-
-  Args:
-    ...(any): arguments used for log's message. Converted to string.
-  ]]
-  if not toassert then
-    logerror(...)
-  end
-  return toassert
-end
-
 
 --[[ __________________________________________________________________________
   Katana UTILITIES
 ]]
 
 local OPARG = Interface.GetOpArg()
-
-
-local function get_attribute_class(kattribute)
-  --[[
-  Returned a non-instanced version of the class type used by the given arg.
-
-  Args:
-    kattribute(IntAttribute or FloatAttribute or DoubleAttribute or StringAttribute)
-  Returns:
-    table: DataAttribute
-  ]]
-  if Attribute.IsInt(kattribute) == true then
-    return IntAttribute
-  elseif Attribute.IsFloat(kattribute) == true then
-    return FloatAttribute
-  elseif Attribute.IsDouble(kattribute) == true then
-    return DoubleAttribute
-  elseif Attribute.IsString(kattribute) == true then
-    return StringAttribute
-  else
-    logerror(
-      "[get_attribute_class] passed attribute <",
-      kattribute,
-      ">is not supported."
-    )
-  end
-end
 
 local function get_user_attr(time, name, default_value)
     --[[
@@ -127,56 +87,6 @@ local function get_user_attr(time, name, default_value)
 
 end
 
-local function get_loc_attr(location, attr_path, time, default)
-  --[[
-  Get the given attribute on the location at given time.
-  Raise an error is nil result I found or return <default> if specified.
-
-  If default is not nil and the attribute is not found, it is instead returned.
-
-  Args:
-    location(str): scene graph location to extract teh attribute from
-    attr_path(str): path of the attribute on the location
-    time(int): frame to extract the value from
-    default(any or nil): value to return if attribute not found.
-  Returns:
-    table: table of 2: {value table, table representing the original data type}
-  ]]
-
-  local lattr = Interface.GetAttr(attr_path, location)
-
-  if not lattr then
-
-    if default ~= nil then
-      return default
-    end
-
-    logerror(
-      "[get_loc_attr] Attr <",attr_path,"> not found on source <",location,">."
-    )
-
-  end
-
-  local lattr_type = get_attribute_class(lattr)
-
-  lattr = lattr:getNearestSample(time)
-
-  if not lattr then
-
-    if default ~= nil then
-      return default
-    end
-
-    logerror(
-      "[get_loc_attr] Attr <", attr_path, "> is nil on source <", location,
-      "> at time=", time
-    )
-
-  end
-
-  return lattr, lattr_type
-
-end
 
 --[[ __________________________________________________________________________
   CONSTANTS
