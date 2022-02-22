@@ -1,17 +1,15 @@
 --[[
-VERSION = 10
+VERSION = 12
 llloger
 
 A simple logging module based on Python one. Originaly made for use with
 Foundry's Katana software, OpScript feature.
-
-This is the inline version to be be inserted at tje top of your current OpScript.
-To turn it into the module version, replace the last line with:
-<return logging>
+This is a module version.
 
 Author: Liam Collod
-Last-Modified: 07/01/2022
+Last-Modified: 22/02/2022
 
+[LICENSE]
 Copyright 2022 Liam Collod
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,9 +26,17 @@ limitations under the License.
 
 ]]
 
-local LOG_LEVEL = "debug" -- debug, info, warning, error
+-- make some global lua fonction local to improve perfs
+local tableconcat = table.concat
+local tostring = tostring
+local stringrep = string.rep
+local tonumber = tonumber
+local stringformat = string.format
+local print = print
+local type = type
 
-function round(num, numDecimalPlaces)
+
+local function round(num, numDecimalPlaces)
   --[[
   Source: http://lua-users.org/wiki/SimpleRound
   Parameters:
@@ -42,7 +48,7 @@ function round(num, numDecimalPlaces)
   buf[#buf + 1] = "%."
   buf[#buf + 1] = (numDecimalPlaces or 0)
   buf[#buf + 1] = "f"
-  return tonumber(string.format(table.concat(buf), num))
+  return tonumber(stringformat(tableconcat(buf), num))
 end
 
 local strFmtSettings = {}
@@ -54,6 +60,8 @@ function strFmtSettings:new()
 
   -- these are the default values
   local attrs = {
+    ["display_line"] = true,
+    ["blocks_duplicate"] = true,
     -- how much decimals should be kept for floating point numbers
     ["numbers"] = {
       ["round"] = 3
@@ -73,6 +81,16 @@ function strFmtSettings:new()
       ["display_quotes"] = false
     }
   }
+
+  function attrs:set_display_line(enable)
+    -- enable(bool): true to display line from where the logger was called
+    self.display_line = enable
+  end
+
+  function attrs:set_blocks_duplicate(enable)
+    -- enable(bool): true to enable blocking of repeated messages
+    self.blocks_duplicate = enable
+  end
 
   function attrs:set_num_round(round_value)
     -- round_value(int):
@@ -113,7 +131,10 @@ function strFmtSettings:new()
 
 end
 
-function stringify(source, index, settings)
+local table2string
+local stringify
+
+stringify = function(source, index, settings)
   --[[
   Convert the source to a readable string , based on it's type.
 
@@ -141,7 +162,7 @@ function stringify(source, index, settings)
     local buf = {"\""}
     buf[#buf + 1] = source
     buf[#buf + 1] = "\""
-    source = table.concat(buf)
+    source = tableconcat(buf)
 
   else
     source = tostring(source)
@@ -152,7 +173,7 @@ function stringify(source, index, settings)
 
 end
 
-function table2string(tablevalue, index, settings)
+table2string = function(tablevalue, index, settings)
     --[[
   Convert a table to human readable string.
   By default formatted on multiples lines for clarity. Specify tdtype=oneline
@@ -191,10 +212,10 @@ function table2string(tablevalue, index, settings)
 
   local linebreak_start = "\n"
   local linebreak = "\n"
-  local inline_indent = string.rep(
+  local inline_indent = stringrep(
       " ", index * tsettings.indent + tsettings.indent
   )
-  local inline_indent_end = string.rep(
+  local inline_indent_end = stringrep(
       " ", index * tsettings.indent
   )
 
@@ -241,12 +262,12 @@ function table2string(tablevalue, index, settings)
   end
   outtable[#outtable + 1] = inline_indent_end
   outtable[#outtable + 1] = "}"
-  return tostring(table.concat(outtable))
+  return tostring(tableconcat(outtable))
 
 end
 
-local logging = {}
 
+local logging = {}
 function logging:new(name)
   --[[
   Simple logging system.
@@ -275,25 +296,35 @@ function logging:new(name)
         weight = 40,
       }
     },
-    level = nil,
-    formatting = strFmtSettings:new()
+    level = false,
+    formatting = strFmtSettings:new(),
+    __last = false,
+    __lastnum = 0
 
   }
 
-  attrs["level"] = attrs["levels"][LOG_LEVEL]
+  attrs["level"] = attrs["levels"]["debug"]
 
   function attrs:set_level(level)
-    -- level(string): see self.levels keys for value
-    self.level = attrs["levels"][level]
+    -- level(string or nil): see self.levels keys for value
+
+    if level == nil then
+      return
+    end
+
+    if attrs["levels"][level] ~= nil then
+      self.level = attrs["levels"][level]
+    end
+
   end
 
-  function attrs:_log(level, messages, context)
+  function attrs:_log(level, messages, linectx)
     --[[
     Args:
       level(table): level object as defined in self.levels
       messages(table): list of object to display
-      context(str): from where the log function is executed.
-        Usually you can pass the function's name
+      linectx(str or nil): from where the log function is executed.
+        Here it's the line number of the logger call
     ]]
 
     if level.weight < self.level.weight then
@@ -311,35 +342,69 @@ function logging:new(name)
     outbuf[#outbuf + 1] = "]["
     outbuf[#outbuf + 1] = self.name
     outbuf[#outbuf + 1] = "]"
-    if context then
-      outbuf[#outbuf + 1] = "["
-      outbuf[#outbuf + 1] = stringify(context)
+    if linectx and self.formatting.display_line == true then
+      outbuf[#outbuf + 1] = "[line"
+      outbuf[#outbuf + 1] = stringify(linectx)
       outbuf[#outbuf + 1] = "] "
     end
-    for mindex, mvalue in ipairs(messages) do
+    for _, mvalue in ipairs(messages) do
       outbuf[#outbuf + 1] = stringify(mvalue, nil, self.formatting)
       outbuf[#outbuf + 1] = " "
     end
 
-    -- concatenate the buffer to string
-    print(table.concat(outbuf))
+    -- concatenate the buffer to string and print
+    self:_print(tableconcat(outbuf))
+
+  end
+
+  function attrs:_print(message)
+    --[[
+    Call the print function but before check if the message is repeated
+    to avoid flooding. (if enable)
+    ]]
+
+    -- we dont need all the later stuff if settings disable it
+    if self.formatting.blocks_duplicate == false then
+      return print(message)
+    end
+
+    -- check if the new message is actually repeated
+    if message == self.__last then
+      self.__lastnum = self.__lastnum + 1
+      return -- don't print
+
+    else
+      -- if the previous message was repeated, tell it to the user
+      if self.__lastnum > 0 then
+        local buf = {}
+        buf[#buf + 1] = "    ... The last message was repeated <"
+        buf[#buf + 1] = self.__lastnum
+        buf[#buf + 1] = "> times..."
+        print(tableconcat(buf))
+      end
+      -- and then reset to the new message
+      self.__last = message
+      self.__lastnum = 0
+    end
+
+    print(message)
 
   end
 
   function attrs:debug(...)
-    self:_log(self.levels.debug, { ... }, debug.getinfo(2).name)
+    self:_log(self.levels.debug, { ... }, debug.getinfo(2).linedefined )
   end
 
   function attrs:info(...)
-    self:_log(self.levels.info, { ... }, debug.getinfo(2).name)
+    self:_log(self.levels.info, { ... }, debug.getinfo(2).linedefined )
   end
 
   function attrs:warning(...)
-    self:_log(self.levels.warning, { ... }, debug.getinfo(2).name)
+    self:_log(self.levels.warning, { ... }, debug.getinfo(2).linedefined )
   end
 
   function attrs:error(...)
-    self:_log(self.levels.error, { ... }, debug.getinfo(2).name)
+    self:_log(self.levels.error, { ... }, debug.getinfo(2).linedefined )
   end
 
   return attrs
@@ -347,4 +412,4 @@ function logging:new(name)
 end
 
 
-local logger = logging:new("GiveMeAName")
+return logging
