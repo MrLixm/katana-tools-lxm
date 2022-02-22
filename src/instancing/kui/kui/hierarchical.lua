@@ -64,8 +64,8 @@ function InstanceHierarchical:new(name, id)
       unique identifier for the instance, usually the loop current index
 
   Attributes:
-    __rendered(bool):
-      true if the instance can be created, false to be ignored
+    __hidden(bool):
+      true will not create the instance as it means it's hidden
     data(table):
       store attributes progressively set on the instance to
       be reused at build time for the instance name.
@@ -78,7 +78,7 @@ function InstanceHierarchical:new(name, id)
   ]]
 
   local attrs = {
-    ["__rendered"] = true,
+    ["__hidden"] = false,
     ["nametmp"] = name,
     ["id"] = id,
     ["gb"] = GroupBuilder(),
@@ -113,8 +113,8 @@ function InstanceHierarchical:new(name, id)
     at the current point index (id attribute).
     ]]
 
-    if not point_data:is_point_hidden(self.id) then
-      self.__rendered = false
+    if point_data:is_point_hidden(self.id) == true then
+      self.__hidden = true
       return
     end
 
@@ -230,7 +230,7 @@ function InstanceHierarchical:new(name, id)
     ]]
 
     -- check if this instance must be rendered first
-    if not self.__rendered then
+    if self.__hidden == true then
       return
     end
 
@@ -360,7 +360,11 @@ end
 --end run()
 end
 
+local function test(level)
+  logger:set_level(level)
+end
+
 return {
   ["run"] = run,
-  ["set_logger_level"] = logger.set_level
+  ["set_logger_level"] = test
 }

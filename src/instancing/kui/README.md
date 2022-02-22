@@ -18,7 +18,21 @@ solution for instancing based on point-cloud locations.
 - Minimal performance loss compared to more straightforward solutions.
 
 
-# Setup
+# Use
+
+Kui is meant to be used in an OpScript.
+
+See [User Arguments](#user-arguments) to see how to configure the OpScript
+parameters. The [Source Attributes](#source-attributes) detailed how you need
+to configure the instacing source (point-cloud).
+And the Installation section just under explain how to set the script .
+
+## Installation
+
+Kui is shipped as a lua module but also as an "all in one file" script.
+
+TODO
+
 
 ## Source Attributes
 
@@ -128,7 +142,8 @@ For *hierarchical* the instance location is just not generated while for
 - `Grouping` must be 1.
 
 Table where each index correspond to a point and the value wheter it's hiden
-or not. Where 1=hidden, 0=visible.
+or not. Where 1=hidden, 0=visible. Similar to $skip but have a value for every
+point.
 
 _Multiplier and additive are ignored._
 
