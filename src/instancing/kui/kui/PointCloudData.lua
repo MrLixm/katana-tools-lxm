@@ -1,5 +1,5 @@
 --[[
-version=0.0.1
+version=0.0.3
 todo
 ]]
 
@@ -14,6 +14,15 @@ local utils = require("kui.utils")
 -- we make some global functions local as this will improve performances in
 -- heavy loops. Note: this is not that useful for PointCloudData
 local tostring = tostring
+
+
+local function set_logger_level(self, level)
+  --[[
+  Propagate the level to all modules too
+  ]]
+  logger:set_level(level)
+  utils:set_logger_level(level)
+end
 
 
 --[[ __________________________________________________________________________
@@ -112,7 +121,7 @@ end
 
 
 local PointCloudData = {}
-PointCloudData["set_logger_level"] = logger.set_level -- for external modif
+PointCloudData["set_logger_level"] = set_logger_level -- for external modif
 function PointCloudData:new(location, time)
   --[[
   Represents attribute data holded on a pointcloud location. (or actually
@@ -822,21 +831,21 @@ end
   end
 
   function attrs:finalize()
-  --[[
-  Last method executed to build this instance.
-  - convert_rotation2rotationaxis
-  - For each attribute in common and arbitrary, create the "processed"
-    key that hold the values but multiplied.
+    --[[
+    Last method executed to build this instance.
+    - convert_rotation2rotationaxis
+    - For each attribute in common and arbitrary, create the "processed"
+      key that hold the values but multiplied.
 
-  Must be executed after <validate>
-  ]]
+    Must be executed after <validate>
+    ]]
+    local stime = os.clock()
 
     -- rebuild rotation attributes
     self:convert_rotation2rotationaxis()
     self:convert_skip_n_hide()
 
     local value
-    local stime = os.clock()
 
     -- we build the <processed> key
     for _, source in pairs({"common", "arbitrary"}) do
@@ -866,6 +875,12 @@ end
 
   end
 
+  logger:debug(
+      "[PointCloudData][new] Finished for location <",
+      location,
+      "> at time=",
+      time
+  )
   return attrs
 
 end

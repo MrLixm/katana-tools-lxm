@@ -1,5 +1,5 @@
 --[[
-version=0.0.1
+version=0.0.2
 todo
 ]]
 
@@ -9,9 +9,15 @@ local logger = logging:new("kui.utils")
 logger.formatting:set_tbl_display_functions(false)
 logger.formatting:set_str_display_quotes(true)
 
+local function set_logger_level(self, level)
+  --[[
+  Propagate the level to all modules too
+  ]]
+  logger:set_level(level)
+end
 
 local _M = {}
-_M["set_logger_level"] = logger.set_level
+_M["set_logger_level"] = set_logger_level
 
 --[[ __________________________________________________________________________
   LUA UTILITIES

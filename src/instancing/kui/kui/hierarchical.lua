@@ -1,5 +1,5 @@
 --[[
-version=0.0.16
+version=0.0.18
 todo
 ]]
 
@@ -10,16 +10,27 @@ logger:set_level("debug")
 logger.formatting:set_tbl_display_functions(false)
 logger.formatting:set_str_display_quotes(true)
 
-
-local function run()
-
--- 95% of the code is wrapped in this condition as it's absolutely not
--- needed when not at "AtRoot", dirty but works.
--- run-time won is negligable (~7%), memory not measured.
-if Interface.AtRoot() then
-
 local PointCloudData = require("kui.PointCloudData")
 local utils = require("kui.utils")
+
+
+local function set_logger_level(self, level)
+  --[[
+  Propagate the level to all modules too
+  ]]
+  logger:set_level(level)
+  PointCloudData:set_logger_level(level)
+  utils:set_logger_level(level)
+end
+
+
+local function atroot()
+--[[
+95% of the code is wrapped in this function as it's absolutely not
+needed when not at "AtRoot", dirty but works.
+run-time won is negligable (~7%), memory not measured.
+]]
+
 
 local OPARG = Interface.GetOpArg()
 
@@ -27,7 +38,6 @@ local OPARG = Interface.GetOpArg()
 -- heavy loops
 local tostring = tostring
 local stringformat = string.format
-
 
 --[[ __________________________________________________________________________
   API
@@ -324,47 +334,35 @@ end
 print("\n")
 create_instances()
 
---end first condition of <if Interface.AtRoot()>
+--end atroot()
+end
 -------------------------------------------------------------------------------
-else
-  -- when we are not at root :
 
-  local function finalize_instances()
-    --[[
-    When Interface is not at root.
-    Only usefull for hierarchical but still called for array.
+local function finalize_instances()
+  --[[
+  When Interface is not at root.
+  Only usefull for hierarchical.
 
-    Not recommended to log anything here as the message will be repeated times
-    the number of instances (so can be thousands !)
-    ]]
+  Not recommended to log anything here as the message will be repeated times
+  the number of instances (so can be thousands !)
+  ]]
 
-    -- attributes created for a single instance
-    local childAttrs = Interface.GetOpArg("childAttrs")  -- type: GroupAttribute
+  -- attributes created for a single instance
+  local childAttrs = Interface.GetOpArg("childAttrs")  -- type: GroupAttribute
 
-    for i=0, childAttrs:getNumberOfChildren() - 1 do
+  for i=0, childAttrs:getNumberOfChildren() - 1 do
 
-      Interface.SetAttr(
-          childAttrs:getChildName(i),
-          childAttrs:getChildByIndex(i)
-      )
-
-    end
+    Interface.SetAttr(
+      childAttrs:getChildName(i),
+      childAttrs:getChildByIndex(i)
+    )
 
   end
 
-  finalize_instances()
-
---end if Interface.AtRoot()
-end
-
---end run()
-end
-
-local function test(level)
-  logger:set_level(level)
 end
 
 return {
-  ["run"] = run,
-  ["set_logger_level"] = test
+  ["run_root"] = atroot,
+  ["run_not_root"] = finalize_instances,
+  ["set_logger_level"] = set_logger_level
 }

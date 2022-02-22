@@ -13,7 +13,6 @@ solution for instancing based on point-cloud locations.
 - Very flexible
   - Quick Multiplication / offset
   - Add arbitrary attributes on the fly
-
 - Logging and error handling.
 - Minimal performance loss compared to more straightforward solutions.
 
@@ -25,19 +24,49 @@ Kui is meant to be used in an OpScript.
 See [User Arguments](#user-arguments) to see how to configure the OpScript
 parameters. The [Source Attributes](#source-attributes) detailed how you need
 to configure the instacing source (point-cloud).
-And the Installation section just under explain how to set the script .
+And the Installation section just under explain how to set the script.
 
 ## Installation
 
 Kui is shipped as a lua module but also as an "all in one file" script.
 
-TODO
+### As module
+
+To register the kui module, you need to put the [kui](kui) directory in a 
+location registered by the `LUA_PATH` environment variable.
+
+For exemple we put the `kui` directory in :
+
+```
+Z:\config\katana
+└── kui
+    ├── array.lua
+    ├── hierarchical.lua
+    └── ...
+```
+
+then our variable will be
+
+```batch
+set "LUA_PATH=%LUA_PATH%Z:\config\katana\?.lua"
+```
+
+See [Lua | 8.1 – The require Function](https://www.lua.org/pil/8.1.html) for 
+more details.
+
+Lastly you can put the content of [opscript.kui.hierarchical.lua](opscript.kui.hierarchical.lua)
+in the OpScript's node `script.lua` parameter.
+
+## As one file script.
+
+TODO not build yet.
 
 
 ## Source Attributes
 
 The script is able to support a lot of point-cloud configurations thanks to
-pre-defined attributes that must be created on the source location (the point-cloud) :
+pre-defined attributes that must be created on the source location 
+(the point-cloud) :
 
 - `instancing.data.sources` (string array) :
   - `[0]` = instance source location.
@@ -187,7 +216,7 @@ axis = {
     z = {0,0,1}
 }
 ```
-If you would look to change the axis you have to use the `$rotationX/Y/Z` tokens.
+If you'd like to change the axis you have to use the `$rotationX/Y/Z` tokens.
 
 
 #### rotation X/Y/Z
@@ -201,9 +230,14 @@ If `$rotation` is specified, these attributes will be overriden by it.
 
 ### instancing.data.arbitrary
 
+First 4 columns are similar to `common`.
+
 #### column 4
 
-Arbitrary attributes might require to not only set the value but also its `scope`,  `inputType`, ... attributes. To do so you can provide a Lua-formatted table that describe how they must be created :
+Arbitrary attributes might require to not only set the value but also its
+`scope`,  `inputType`, ... attributes. To do so you can provide a
+Lua-formatted table that describe how they must be created :
+
 ```lua
 {"target path"=DataAttribute(value)}
 ```
@@ -215,13 +249,17 @@ Here is an example for an arbitrary `randomColor` attribute:
 }
 ```
 
-⚠ You must now that this parameter has a potential security flaw as everything inside is compiled to Lua code using `loadstring("return "..content)` where `content` is the string submitted.
+⚠ You must now that this parameter has a potential security flaw as everything
+inside is compiled to Lua code using `loadstring("return "..content)` where
+`content` is the string submitted.
 
 
 ## User Arguments
 
-
 ### Hierarchical
+
+- `location` = target group location for instances 
+- `applyWhere` = at specific location
 
 #### `user.pointcloud_sg`
 
@@ -239,6 +277,9 @@ source to pick.
 
 ### Array
 
+- `location` = target location for the instance array location (include its name)
+- `applyWhere` = at specific location
+
 #### `user.pointcloud_sg`
 
 Scene graph location of the source (pointcloud)
@@ -248,7 +289,8 @@ Scene graph location of the source (pointcloud)
 
 The code use Lua tables that cannot store more than 2^27 (134 million) values.
 I hope you never reach this amount of values. (something like 44mi points
-with XYZ values and 8,3 mi points for a Matrix attribute).
+with XYZ values and 8,3 mi points for a Matrix attribute). A fix would be
+to instead use Katana's `Array` attribute class.
 
 
 # Performances
@@ -258,22 +300,30 @@ TODO
 
 # Development
 
+Code mostly try to follow Python standards (PEP). "Docstrings" (multi-line comments)
+are formatted as they were Python's Google docstring. 
+
 ## Comments
 
-- Docstrings can be a bit confusing as sometimes `instance` is referring to the Lua class object that is instanced, and sometimes to the Katana instance object.
+- Docstrings can be a bit confusing as sometimes `instance` is referring to 
+the Lua class object that is instanced, and sometimes to the Katana instance object.
 
 - When you see `-- /!\ perfs` means the bloc might be run a heavy amount of time and
   had to be written with this in mind.
 
 ### Implementing a new attribute
 
+Everything will be mostly be done in [PointCloudData](./kui/PointCloudData.lua).
+
 TODO
 
-## PointCloudData
+## [PointCloudData](./kui/PointCloudData.lua)
 
-Here is a look at what some attributes look like. There is no difference between hierarchical and array for attributes stored. Only methods varies.
+Here is a look at what some attributes look like. There is no difference 
+between hierarchical and array for attributes stored. Only methods varies.
 
-`common` and `arbitrary` share the same structure except `arbitrary` has an additional attribute `additional` (and key is not a token).
+`common` and `arbitrary` share the same structure except `arbitrary` has an
+additional attribute `additional` (and key is not a token).
 
 ### attrs
 
