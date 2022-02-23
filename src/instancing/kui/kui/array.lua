@@ -20,18 +20,18 @@ local utils = require("kui.utils")
 -- // Used by InstancingArray
 -- key is the token to query and value is the target attribute path
 -- if the token doesnt have any value on point_data it will not be added.
--- order is important
+-- ! order is important !
 local token_target = {
   { ["token"]="sources", ["target"]="geometry.instanceSource" },
   { ["token"]="index", ["target"]="geometry.instanceIndex" },
   { ["token"]="skip", ["target"]="geometry.instanceSkipIndex" },
-  { ["token"]="scale", ["target"]="geometry.instanceScale" },
   -- if the pdata was validated, we for sure have rotationX/Y/Z
-  { ["token"]="rotationX", ["target"]="geometry.instanceRotateX" },
-  { ["token"]="rotationY", ["target"]="geometry.instanceRotateY" },
-  { ["token"]="rotationZ", ["target"]="geometry.instanceRotateZ" },
-  { ["token"]="translation", ["target"]="geometry.instanceTranslate" },
   { ["token"]="matrix", ["target"]="geometry.instanceMatrix" },
+  { ["token"]="translation", ["target"]="geometry.instanceTranslate" },
+  { ["token"]="rotationZ", ["target"]="geometry.instanceRotateZ" },
+  { ["token"]="rotationY", ["target"]="geometry.instanceRotateY" },
+  { ["token"]="rotationX", ["target"]="geometry.instanceRotateX" },
+  { ["token"]="scale", ["target"]="geometry.instanceScale" },
 }
 
 

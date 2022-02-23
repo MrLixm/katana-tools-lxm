@@ -189,7 +189,7 @@ I specified, take over all the other transforms attributes.
 
 #### scale
 
-- `Grouping` can be any.
+- `Grouping` can be any. TODO is it not 3 ?
 
 Source attribute is excepted to store values in X-Y-Z order.
 
@@ -268,6 +268,19 @@ inside is compiled to Lua code using `loadstring("return "..content)` where
 Internally the conversion is applied only on the `processed`'s key values and
 happens **after** the initial values have been _multiplied/offseted_.
 
+#### instancing.settings.convert_trs_to_matrix
+
+- (optional)(int) : 
+  - `0` to disable any conversion.  
+  - `1` to convert trs attributes to a 4x4 matrix
+
+If enabled, the ``translation``, ``rotationX/Y/Z`` and ``scale`` attributes 
+are converted to a 4x4 identity matrix (the ``matrix`` attribute.). If this
+one was already existing it is overidden.
+
+The rotations values are excepted to be degree. Use 
+``instancing.settings.convert_degree_to_radian=-1`` if that's not the case.
+
 
 ## User Arguments
 
@@ -317,6 +330,8 @@ TODO
 
 Code mostly try to follow Python standards (PEP). "Docstrings" (multi-line comments)
 are formatted as they were Python's Google docstring. 
+
+Code tests were made on Katana 4.5v1.
 
 ## Comments
 

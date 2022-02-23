@@ -157,8 +157,9 @@ function PointCloudData:new(location, time)
     ["location"]=location,
     ["common"]={},
     ["sources"]=false,
-    ["arbitrary"]=false,
-    ["point_count"]=false
+    ["arbitrary"]={},
+    ["point_count"]=false,
+    ["settings"] = {}
   }
 
   -- build the common key with all the supported tokens
@@ -207,13 +208,14 @@ function PointCloudData:new(location, time)
 
   end
 
-  function attrs:get_attr_value(attr_name, pid)
+  function attrs:get_attr_value(attr_name, pid, raw)
   --[[
-  Return the value for the given attribute.
-  It can be a slice for the given pid, or the entire values.
-  The value has already been processed and is a DataAttribute instance.
+  Return the values for the given attribute name.
+  It can be a slice for the given pid, or the entire range of values.
+  The values has already been processed and is a DataAttribute instance except
+  if raw=true.
 
-  Must be loop safe.
+  ! Must be loop safe.
 
   Args:
     attr_name(str):
@@ -224,18 +226,27 @@ function PointCloudData:new(location, time)
       point index: which point to use. If not specified return
       the whole table. !! starts at 0 !!
 
+    raw(bool or nil):
+      If true return the values as their corresponding DataAttribute instance.
+      false by default (if nil)
+
   Returns:
     DataAttribute or nil:
       DataAttribute instance or nil if <attr_name> is empty (=false).
   ]]
-
+    -- TODO returned buffer2 is not a copy but always the same table !
+    -- can cause issue if values not "baked" somewhere
     if attr_name == "sources" then
       self.__buffer2 = {}
       for index, source_data in pairs(self.sources) do
         -- index should start counting at 0
         self.__buffer2[tonumber(index) + 1] = source_data.path
       end
-      return StringAttribute(self.__buffer2)
+      if raw==true then
+        return self.__buffer2
+      else
+        return StringAttribute(self.__buffer2)
+      end
     end
 
     -- this set self.__attrdata
@@ -258,7 +269,11 @@ function PointCloudData:new(location, time)
     end
 
     -- return as Katana DataAttribute, with the tuple size specified from grouping
-    return self.__attrdata["type"](self.__buffer2, self.__attrdata["grouping"])
+    if raw==true then
+      return self.__buffer2
+    else
+      return self.__attrdata["type"](self.__buffer2, self.__attrdata["grouping"])
+    end
 
   end
 
@@ -339,6 +354,8 @@ function PointCloudData:new(location, time)
 
   function attrs:build()
 
+    self:_build_settings()
+
     -- query data on source to build the table
     self:_build_common()
     self:_build_arbitrary()
@@ -355,6 +372,7 @@ function PointCloudData:new(location, time)
     self:_build_processed_key()
 
     self:_convert_degree_radian()
+    self:_convert_to_matrix()
 
   end
 
@@ -366,20 +384,13 @@ function PointCloudData:new(location, time)
     To execute after self:_build_processed_key, the <processed> key have to be build.
     ]]
     local convert_func
-    local convert = utils:get_loc_attr(
-        self.location,
-        "instancing.settings.convert_degree_to_radian",
-        self.time,
-        { 0 }
-    ) -- type: table
-    convert = convert[1]
-    if convert == 1 then
+    if self.settings.convert_degree_to_radian == 1 then
       convert_func = utils.degree_to_radian
-    elseif convert == -1 then
+    elseif self.settings.convert_degree_to_radian == -1 then
       convert_func = utils.radian_to_degree
     else
       logger:debug(
-        "[PointCloudData][_convert_degree_radian] Finished early with convert=", convert
+        "[PointCloudData][_convert_degree_radian] Aborted early with convert=", self.settings.convert_degree_to_radian
       )
       return
     end
@@ -401,7 +412,7 @@ function PointCloudData:new(location, time)
     end
 
     logger:debug(
-        "[PointCloudData][_convert_degree_radian] Finished with convert=", convert
+      "[PointCloudData][_convert_degree_radian] Finished with convert=", self.settings.convert_degree_to_radian
     )
 
   end
@@ -521,6 +532,116 @@ function PointCloudData:new(location, time)
 
   end
 
+  function attrs:_convert_to_matrix()
+    --[[
+    Convert the translation, rotationX/Y/Z, and scale attributes to the matrix
+    attribute (4x4 matrix).
+
+    Must be executed after <processed> key was created and its values are in
+    the final state.
+    ]]
+
+    if self.settings.convert_trs_to_matrix == 0 then
+      logger:debug(
+        "[PointCloudData][_convert_to_matrix] Aborted. Setting not enable."
+      )
+      return
+    end
+
+    local v
+    local matrices = {}
+    local m44
+
+    -- safety check
+    if self.point_count * 16 >= 2^27 then
+      utils:logerror(
+        "[PointCloudData][_convert_to_matrix] Cannot be executed : \z
+        The number of point * 16 > 2^27 (134mi) which is the Katana's limit \z
+        for lua table."
+      )
+    end
+
+    -- build a new 4x4 matrix for each point
+    for i=0, self.point_count - 1 do
+
+      -- translation
+      m44 = Imath.M44d()
+      v = self:get_attr_value("translation", i, true)
+      if v then
+        m44:translate(Imath.V3d(v))
+      end
+
+      -- rotations
+      v = self:get_attr_value("rotationX", i, true)
+      if v then
+        v = {utils.degree_to_radian(v[1])}
+        v[2] = utils.degree_to_radian(self:get_attr_value("rotationY", i, true)[1])
+        v[3] = utils.degree_to_radian(self:get_attr_value("rotationZ", i, true)[1])
+        m44:rotate(Imath.V3d(v))
+      end
+
+      -- scale
+      v = self:get_attr_value("scale", i, true)
+      if v then
+        m44:scale(Imath.V3d(v))
+      end
+
+      -- combine the created matrix to the matrices table
+      for _, mv in ipairs(m44:toTable()) do
+        matrices[#matrices + 1] = mv
+      end
+
+    end
+
+    self.common.matrix = build_attr_structure(
+        "function _convert_to_matrix()",
+        16,
+        1,
+        0,
+        matrices,
+        DoubleAttribute,
+        matrices
+    )
+
+    self.common.translation = false
+    self.common.rotation = false
+    self.common.rotationX = false
+    self.common.rotationY = false
+    self.common.rotationZ = false
+    self.common.scale = false
+
+    logger:debug(
+        "[PointCloudData][_convert_to_matrix] Finished. New matrix \z
+        attribute of length=", #matrices, "created."
+    )
+
+  end
+
+  function attrs:_build_settings()
+    --[[
+    Build the <settings> keys.
+    ]]
+
+    local setting
+
+    setting = utils:get_loc_attr(
+        self.location,
+        "instancing.settings.convert_degree_to_radian",
+        self.time,
+        { 0 }
+    ) -- type: table
+    self.settings.convert_degree_to_radian = setting[1]
+
+    setting = utils:get_loc_attr(
+        self.location,
+        "instancing.settings.convert_trs_to_matrix",
+        self.time,
+        { 0 }
+    ) -- type: table
+    self.settings.convert_trs_to_matrix = setting[1]
+
+  end
+
   function attrs:_build_sources()
     --[[
     Build the <sources> key from the <instancing.data.sources> attribute
@@ -574,12 +695,18 @@ function PointCloudData:new(location, time)
       attribute on source location
     ]]
 
-      -- get the attribute on the pc
+    -- get the attribute on the pc
     local data_arbtr = utils:get_loc_attr(
         self.location,
         "instancing.data.arbitrary",
-        self.time
+        self.time,
+        0
     )
+    -- if attribute was not found
+    if data_arbtr == 0 then
+      return
+    end
+
     local target
     local grouping
     local multiplier
