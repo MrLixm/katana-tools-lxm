@@ -1,5 +1,5 @@
 --[[
-version=0.0.3
+version=0.0.6
 todo
 ]]
 
@@ -24,12 +24,13 @@ local utils = require("kui.utils")
 local token_target = {
   { ["token"]="sources", ["target"]="geometry.instanceSource" },
   { ["token"]="index", ["target"]="geometry.instanceIndex" },
-  { ["token"]="translation", ["target"]="geometry.instanceTranslate" },
-  -- if the pdata was validated, we for sure have rotationX/Y/Z
-  { ["token"]="rotationZ", ["target"]="geometry.instanceRotateZ" },
-  { ["token"]="rotationY", ["target"]="geometry.instanceRotateY" },
-  { ["token"]="rotationX", ["target"]="geometry.instanceRotateX" },
+  { ["token"]="skip", ["target"]="geometry.instanceSkipIndex" },
   { ["token"]="scale", ["target"]="geometry.instanceScale" },
+  -- if the pdata was validated, we for sure have rotationX/Y/Z
+  { ["token"]="rotationX", ["target"]="geometry.instanceRotateX" },
+  { ["token"]="rotationY", ["target"]="geometry.instanceRotateY" },
+  { ["token"]="rotationZ", ["target"]="geometry.instanceRotateZ" },
+  { ["token"]="translation", ["target"]="geometry.instanceTranslate" },
   { ["token"]="matrix", ["target"]="geometry.instanceMatrix" },
 }
 
@@ -88,9 +89,12 @@ function InstancingArray:new(point_data)
       self:add(target,  self.pdata:get_attr_value(target))
     end
 
+    self:add("type", StringAttribute("instance array"))
+
   end
 
   return attrs
+
 end
 
 
@@ -132,6 +136,9 @@ end
 
 
 local function set_logger_level(self, level)
+  --[[
+  Propagate the level to all modules too
+  ]]
   logger:set_level(level)
   PointCloudData:set_logger_level(level)
   utils:set_logger_level(level)

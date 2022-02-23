@@ -1,5 +1,5 @@
 --[[
-version=0.0.2
+version=0.0.3
 todo
 ]]
 
@@ -28,6 +28,7 @@ _M["set_logger_level"] = set_logger_level
 local tostring = tostring
 local select = select
 local tableconcat = table.concat
+local mathpi = math.pi
 
 function _M:conkat(...)
   --[[
@@ -177,6 +178,30 @@ function _M:get_user_attr(time, name, default_value)
 
     end
 
+end
+
+
+function _M.degree_to_radian(rotation)
+  --[[
+  Args:
+    rotation(num): rotation value to convert to radian
+  Returns:
+    num:
+      rotation value converted to radian
+  ]]
+  return rotation * (mathpi/180.0)
+end
+
+
+function _M.radian_to_degree(radian)
+  --[[
+  Args:
+    radian(num): radian value to convert to degree
+  Returns:
+    num:
+      radian value converted to degree
+  ]]
+  return radian * (180.0/mathpi)
 end
 
 

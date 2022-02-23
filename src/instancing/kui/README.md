@@ -141,9 +141,12 @@ Only used to determine the number of individuals points using :
 length(points.values) / points.grouping * points.multiplier + points.additive
 ```
 
-This mean you could use any attribute to determine how much points there is (but usually it is `geometry.point.P`)
+This mean you could use any attribute to determine how many points there is (but usually it is `geometry.point.P`)
 
 As we saw above, in this case the multiplier increase the number of points (to use in case of `$points` differs with the length of other tokens).
+
+If you use this feature on attribute like `rotationX` token, the math will be applied
+on all values, including the axis ones, which will led to weird results.
 
 #### index
 
@@ -252,6 +255,18 @@ Here is an example for an arbitrary `randomColor` attribute:
 ⚠ You must now that this parameter has a potential security flaw as everything
 inside is compiled to Lua code using `loadstring("return "..content)` where
 `content` is the string submitted.
+
+### instancing.settings
+
+#### instancing.settings.convert_degree_to_radian
+
+- (optional)(int) : 
+  - `0` to disable any conversion.  
+  - `1` to convert degree to radian.
+  - `-1` to convert radian to degree.
+  
+Internally the conversion is applied only on the `processed`'s key values and
+happens **after** the initial values have been _multiplied/offseted_.
 
 
 ## User Arguments

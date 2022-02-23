@@ -1,5 +1,5 @@
 --[[
-version=0.0.3
+version=0.0.6
 todo
 ]]
 
@@ -31,20 +31,21 @@ end
 
 
 -- list of supported tokens with useful info used internally
--- <is_transform==true> force use of DoubleAttribute for values.
+-- <force_type==bool or DataAttribute>
+--    force use of this type of DoubleAttribute for values.
 local Tokens = {
       ["list"] = {
-        ["points"]       = { ["is_transform"]=false },
-        ["index"]        = { ["is_transform"]=false },
-        ["skip"]         = { ["is_transform"]=false },
-        ["hide"]         = { ["is_transform"]=false },
-        ["matrix"]       = { ["is_transform"]=true },
-        ["translation"]  = { ["is_transform"]=true },
-        ["scale"]        = { ["is_transform"]=true },
-        ["rotation"]     = { ["is_transform"]=true },
-        ["rotationX"]    = { ["is_transform"]=true },
-        ["rotationY"]    = { ["is_transform"]=true },
-        ["rotationZ"]    = { ["is_transform"]=true }
+        ["points"]       = { ["force_type"]=false },
+        ["index"]        = { ["force_type"]=IntAttribute },
+        ["skip"]         = { ["force_type"]=IntAttribute },
+        ["hide"]         = { ["force_type"]=IntAttribute },
+        ["matrix"]       = { ["force_type"]=DoubleAttribute },
+        ["translation"]  = { ["force_type"]=DoubleAttribute },
+        ["scale"]        = { ["force_type"]=DoubleAttribute },
+        ["rotation"]     = { ["force_type"]=DoubleAttribute },
+        ["rotationX"]    = { ["force_type"]=DoubleAttribute },
+        ["rotationY"]    = { ["force_type"]=DoubleAttribute },
+        ["rotationZ"]    = { ["force_type"]=DoubleAttribute }
       }
 }
 function Tokens:check_token(token)
@@ -97,7 +98,7 @@ local function build_attr_structure(
     additive(num): offset to apply to values
     values(table): value should always be a numerical index table
     type(DataAttribute): with what Data type values must be encoded
-    processed(table or nil): optional, usually build in finalize()
+    processed(table or nil): optional, usually build in PointCloudData._build_processed_key
   ]]
 
   if path == nil or grouping==nil or multiplier==nil or additive==nil or
@@ -142,7 +143,7 @@ function PointCloudData:new(location, time)
     sources(table): num keys
     arbitrary(table): keys are instance target attribute path
     __attrdata(table or false):
-      set by __get_attr_data(), make sure the method has been called before use
+      set by _get_attr_data(), make sure the method has been called before use
     __buffer2(any or false):
       used to store value without having to create a new local variable
 
@@ -165,7 +166,7 @@ function PointCloudData:new(location, time)
     attrs.common[token_name] = false
   end
 
-  function attrs:__get_attr_data(attr_name)
+  function attrs:_get_attr_data(attr_name)
     --[[
     Get the attribute data table for the given <attr_name>.
     Table looks like this :
@@ -228,38 +229,38 @@ function PointCloudData:new(location, time)
       DataAttribute instance or nil if <attr_name> is empty (=false).
   ]]
 
-  if attr_name == "sources" then
-    self.__buffer2 = {}
-    for index, source_data in pairs(self.sources) do
-      -- index should start counting at 0
-      self.__buffer2[tonumber(index) + 1] = source_data.path
+    if attr_name == "sources" then
+      self.__buffer2 = {}
+      for index, source_data in pairs(self.sources) do
+        -- index should start counting at 0
+        self.__buffer2[tonumber(index) + 1] = source_data.path
+      end
+      return StringAttribute(self.__buffer2)
     end
-    return StringAttribute(self.__buffer2)
-  end
 
-  -- this set self.__attrdata
-  self:__get_attr_data(attr_name)
-  if not self.__attrdata then
-    --logger:debug("attr_name<", attr_name, "> is not initialized. (false)")
-    return nil
-  end
-
-  -- no point specified, return all the values
-  if pid == nil then
-    self.__buffer2 = self.__attrdata["processed"]  -- table
-  -- else return a slice of the table
-  else
-    self.__buffer2 = {}
-    -- grouping usually vary between 1 and 16(matrices), so small loop.
-    for i=1, self.__attrdata["grouping"] do
-      self.__buffer2[#self.__buffer2 + 1] = self.__attrdata["processed"][self.__attrdata["grouping"] * pid + i]
+    -- this set self.__attrdata
+    self:_get_attr_data(attr_name)
+    if not self.__attrdata then
+      --logger:debug("attr_name<", attr_name, "> is not initialized. (false)")
+      return nil
     end
+
+    -- no point specified, return all the values
+    if pid == nil then
+      self.__buffer2 = self.__attrdata["processed"]  -- table
+    -- else return a slice of the table
+    else
+      self.__buffer2 = {}
+      -- grouping usually vary between 1 and 16(matrices), so small loop.
+      for i=1, self.__attrdata["grouping"] do
+        self.__buffer2[#self.__buffer2 + 1] = self.__attrdata["processed"][self.__attrdata["grouping"] * pid + i]
+      end
+    end
+
+    -- return as Katana DataAttribute, with the tuple size specified from grouping
+    return self.__attrdata["type"](self.__buffer2, self.__attrdata["grouping"])
+
   end
-
-  -- return as Katana DataAttribute, with the tuple size specified from grouping
-  return self.__attrdata["type"](self.__buffer2, self.__attrdata["grouping"])
-
-end
 
   function attrs:get_index_at_point(pid)
     --[[
@@ -284,6 +285,8 @@ end
     Return false is the point at given index must not be created (hidden).
     This is determined by using the <hide> token.
 
+    /!\ perfs
+
     Args:
       pid(int): point index: which point to use. !! starts at 0 !!
 
@@ -291,12 +294,12 @@ end
       bool: true if the point is hidden and thus should not be created
     ]]
 
-    local data = self:get_attr_value("hide") -- table of 0/1
+    local data = self:get_attr_value("hide", pid) -- table of 0/1
     if not data then
       return false
     end
 
-    if data[pid + 1] == 1 then
+    if data:getValue() == 1 then
       return true
     end
 
@@ -334,11 +337,80 @@ end
 
   end
 
-  function attrs:convert_rotation2rotationaxis()
+  function attrs:build()
+
+    -- query data on source to build the table
+    self:_build_common()
+    self:_build_arbitrary()
+    self:_build_sources()
+
+    -- check that the data queried above is valid
+    self:_validate()
+
+    -- perform some conversion before building <processed>
+    self:_convert_rotation2rotationaxis()
+    self:_convert_skip_n_hide()
+
+    -- build the <processed> key
+    self:_build_processed_key()
+
+    self:_convert_degree_radian()
+
+  end
+
+  function attrs:_convert_degree_radian()
+    --[[
+    Convert degree to radian or inverse or do nothing ,depending of user
+    specified setting.
+
+    To execute after self:_build_processed_key, the <processed> key have to be build.
+    ]]
+    local convert_func
+    local convert = utils:get_loc_attr(
+        self.location,
+        "instancing.settings.convert_degree_to_radian",
+        self.time,
+        { 0 }
+    ) -- type: table
+    convert = convert[1]
+    if convert == 1 then
+      convert_func = utils.degree_to_radian
+    elseif convert == -1 then
+      convert_func = utils.radian_to_degree
+    else
+      logger:debug(
+        "[PointCloudData][_convert_degree_radian] Finished early with convert=", convert
+      )
+      return
+    end
+
+    local source_values
+
+    -- convert the rotationX/Y/Z tokens
+    for _, token in ipairs({"rotationX", "rotationY", "rotationZ"}) do
+      source_values = self.common[token].processed
+      for i=0, #source_values / 4 - 1 do
+        -- make sure teh axis are not processed !
+        source_values[i * 4 + 1] = convert_func(source_values[i * 4 + 1])
+      end
+    end
+    -- convert the rotation token
+    source_values = self.common.rotation.processed
+    for i, v in ipairs(source_values) do
+      source_values[i] = convert_func(v)
+    end
+
+    logger:debug(
+        "[PointCloudData][_convert_degree_radian] Finished with convert=", convert
+    )
+
+  end
+
+  function attrs:_convert_rotation2rotationaxis()
     --[[
     As rotationX/Y/Z should always exists, use the <rotation> one to build them
 
-    Execute after self:validate
+    Execute after self:_validate
     ! heavy ! Process through all the rotation points
     ]]
 
@@ -387,10 +459,11 @@ end
         nil
       )
     end
+    logger:debug("[PointCloudData][_convert_rotation2rotationaxis] Finished.")
 
   end
 
-  function attrs:convert_skip_n_hide()
+  function attrs:_convert_skip_n_hide()
     --[[
     Both token should always be defined or none of them. So if <hide> is
     specified, convert it to <skip>. If only <skip> is specified convert it
@@ -398,7 +471,7 @@ end
 
     So the <hide> token take over the <skip> token if both specified !
 
-    Execute after the <self:validate> method.
+    Execute after the <self:_validate> method.
     ]]
 
     local pcvalues = {}
@@ -444,22 +517,11 @@ end
       )
 
     end
-
+    logger:debug("[PointCloudData][_convert_skip_n_hide] Finished.")
 
   end
 
-  function attrs:build()
-    -- query data on source to build the table
-    self:build_common()
-    self:build_arbitrary()
-    self:build_sources()
-    -- check that the data queried above is valid
-    self:validate()
-    -- then modify this data for final use
-    self:finalize()
-  end
-
-  function attrs:build_sources()
+  function attrs:_build_sources()
     --[[
     Build the <sources> key from the <instancing.data.sources> attribute
      on source location.
@@ -506,7 +568,7 @@ end
 
   end
 
-  function attrs:build_arbitrary()
+  function attrs:_build_arbitrary()
     --[[
     Build the <arbitrary> key from the <instancing.data.arbitrary>
       attribute on source location
@@ -546,7 +608,7 @@ end
       if additional then
         additional = utils:logassert(
             loadstring(utils:conkat("return ", additional)),
-            "[PointCloudData][build_arbitrary] Error while converting \z
+            "[PointCloudData][_build_arbitrary] Error while converting \z
             <instancing.data.arbitrary> column 5/5 to Lua.",
             " Issue in: ",
             additional
@@ -573,7 +635,7 @@ end
 
   end
 
-  function attrs:build_common()
+  function attrs:_build_common()
     --[[
     Build the <common> key from the <instancing.data.common>
       attribute on source location.
@@ -627,6 +689,7 @@ end
         -- cleaning the array good ?
         --
         -- <values> key should always be a table so just fill it with 0 here
+        pointsvalue = {}
         for pointindex=1, #pcvalues / grouping * multiplier do
           pointsvalue[pointindex] = 0
         end
@@ -640,6 +703,7 @@ end
       elseif token == "index" or token == "skip" then
         -- for <index> and <skip> token, make sure to convert grouping to 1
         -- the last index from the group is used ({2,2,<2>})
+        pointsvalue = {}
         for pointindex=1, #pcvalues / grouping do
           pointsvalue[pointindex] = pcvalues[pointindex * grouping]
         end
@@ -647,9 +711,9 @@ end
         grouping = 1
 
       end
-      -- force transform token to use doubles
-      if Tokens.list[token].is_transform == true then
-        value_type = DoubleAttribute
+      -- force some tokens with a pre-defined DataAttribute type.
+      if Tokens.list[token].force_type ~= false then
+        value_type = Tokens.list[token].force_type
       end
 
     self["common"][token] = build_attr_structure(
@@ -665,10 +729,10 @@ end
 
     end
 
-    -- end build_common
+    -- end _build_common
   end
 
-  function attrs:validate()
+  function attrs:_validate()
     --[[
     To call after built operations.
     Verify that self table is properly built.
@@ -679,7 +743,7 @@ end
     -- attr points must always exists
     if not self.common.points then
       utils:logerror(
-          "[PointCloudData][validate] Missing token $points on source <",
+          "[PointCloudData][_validate] Missing token $points on source <",
           self.location,
           ">."
       )
@@ -688,7 +752,7 @@ end
     -- we need at least one instance source
     if not self.sources then
       utils:logerror(
-          "[PointCloudData][validate] No instance sources specified \z
+          "[PointCloudData][_validate] No instance sources specified \z
            for source <",
           self.location,
           ">."
@@ -698,7 +762,7 @@ end
     -- instance sources index must start at 0
     if self.sources["0"] == nil then
       utils:logerror(
-        "[PointCloudData][validate] No index 0 found in <sources> attributes."
+        "[PointCloudData][_validate] No index 0 found in <sources> attributes."
       )
     end
 
@@ -706,7 +770,7 @@ end
     for _, isource_data in ipairs(self.sources) do
       if not isource_data["index"] then
         utils:logerror(
-            "[PointCloudData][validate] No index specified for \z
+            "[PointCloudData][_validate] No index specified for \z
             instance source <",
             self.isource_data["path"],
             "> for source location <",
@@ -719,7 +783,7 @@ end
     -- it's best to only specify one if needed, warn user
     if self.common.hide and self.common.skip then
       logger:warning(
-          "[PointCloudData][validate] Source <", self.location,
+          "[PointCloudData][_validate] Source <", self.location,
           "> declare a <$hide> token but also the <$skip> one.\z
            In that case $hide will override $skip."
       )
@@ -734,7 +798,7 @@ end
         self.common.rotationX
     ) then
       logger:warning(
-          "[PointCloudData][validate] Source <", self.location,
+          "[PointCloudData][_validate] Source <", self.location,
           "> declare a $matrix token but also one of the trs. In that case \z
            $matrix take the priority."
       )
@@ -758,7 +822,7 @@ end
           self.common.rotationZ
       ) then
         utils:logerror(
-          "[PointCloudData][validate] Source <", self.location,
+          "[PointCloudData][_validate] Source <", self.location,
           "> doesn't have all the <rotationX/Y/Z> tokens declared \z
           (but declare currently at least one)."
         )
@@ -772,7 +836,7 @@ end
         self.common.rotationZ
     ) then
       logger:warning(
-          "[PointCloudData][validate] Source <", self.location,
+          "[PointCloudData][_validate] Source <", self.location,
           "> declare a rotation token but also one of the $rotationX/Y/Z.\z
            In that case $rotation take the priority."
       )
@@ -782,7 +846,7 @@ end
     if self.common.rotation then
       if self.common.rotation.grouping ~= 3 then
         utils:logerror(
-          "[PointCloudData][validate] Source <", self.location,
+          "[PointCloudData][_validate] Source <", self.location,
           "> $rotation token only accepts 3 as grouping, not ",
           self.common.rotation.grouping
         )
@@ -791,7 +855,7 @@ end
     if self.common.matrix then
       if self.common.matrix.grouping ~= 16 then
         utils:logerror(
-          "[PointCloudData][validate] Source <", self.location,
+          "[PointCloudData][_validate] Source <", self.location,
           "> $matrix token only accepts 16 as grouping, not ",
           self.common.matrix.grouping
         )
@@ -800,23 +864,25 @@ end
     if self.common.translation then
       if self.common.translation.grouping ~= 3 then
         utils:logerror(
-          "[PointCloudData][validate] Source <", self.location,
+          "[PointCloudData][_validate] Source <", self.location,
           "> $translation token only accepts 3 as grouping, not ",
           self.common.translation.grouping
         )
       end
     end
 
+    -- check per-point tokens have the good "shape"
     local attrlength
     for attrname, attrdata in pairs(self.common) do
       -- attrdata can be <false> if not built so skip if so, I wish lua has a
       -- "continue" keyword like in python !
-      if attrdata then
+      -- also skip if the token is skip (doesn't have per-point value)
+      if attrdata and attrname ~= "skip" then
         --we check first that the <grouping> and <points> attribute seems valid
         attrlength = #(attrdata.values) / attrdata.grouping
         if attrlength ~= self.point_count then
           utils:logerror(
-          "[PointCloudData][validate] Common attribute <", attrname,
+          "[PointCloudData][_validate] Common attribute <", attrname,
           "> as an odd number of values : ", tostring(#(attrdata.values)),
           " / ", tostring(attrdata.grouping), " = ", attrlength,
           " while point_count=", self.point_count
@@ -827,26 +893,17 @@ end
       -- end for attrname, attrdata
     end
 
-    -- end for validate()
+    -- end for _validate()
   end
 
-  function attrs:finalize()
+  function attrs:_build_processed_key()
     --[[
-    Last method executed to build this instance.
-    - convert_rotation2rotationaxis
-    - For each attribute in common and arbitrary, create the "processed"
-      key that hold the values but multiplied.
+    For each attribute in common and arbitrary, create the "processed"
+      key that hold the values but with math applied.
 
-    Must be executed after <validate>
+    Must be executed after <self._validate>
     ]]
-    local stime = os.clock()
-
-    -- rebuild rotation attributes
-    self:convert_rotation2rotationaxis()
-    self:convert_skip_n_hide()
-
     local value
-
     -- we build the <processed> key
     for _, source in pairs({"common", "arbitrary"}) do
 
@@ -866,12 +923,7 @@ end
 
     end
 
-    stime = os.clock() - stime
-    logger:debug(
-      "[PointCloudData][finalize] Finished in ",
-      stime,
-      "s for pointcloud <",self.location,">."
-    )
+    logger:debug("[PointCloudData][_build_processed_key] Finished ")
 
   end
 
