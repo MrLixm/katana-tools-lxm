@@ -4,20 +4,21 @@
 Welcome on the KUI module's documentation.
 
 [![root](https://img.shields.io/badge/back_to_root-536362?)](../README.md)
-[![next](https://img.shields.io/badge/next_page-developer-4f4f4f?labelColor=fcb434)](DEVELOPER.md)
+[![next](https://img.shields.io/badge/▶_next_page-culling-4f4f4f?labelColor=fcb434)](CULLING.md)
 
 # Use
 
 Kui is meant to be used with an OpScript node.
 
-See [User Arguments](#user-arguments) to see how to configure the OpScript
-parameters. The [Source Attributes](#source-attributes) detailed how you need
+See [User Arguments](#3-user-arguments) to see how to configure the OpScript
+parameters. The [Source Attributes](#2-source-configuration) detailed how you need
 to configure the instancing source (point-cloud).
 And the Installation section just under explain how to set the script.
 
 ## 1. Installation
 
 Kui is shipped as a lua module but also as an "all in one file" script.
+Kui also require the `llloger` module to work.
 
 ### As module
 
@@ -43,14 +44,37 @@ set "LUA_PATH=%LUA_PATH%Z:\config\katana\?.lua"
 See [Lua | 8.1 – The require Function](https://www.lua.org/pil/8.1.html) for 
 more details.
 
+---
+
+The same need to be done for the `llloger` module that you can find here :
+
+> https://github.com/MrLixm/Foundry_Katana/tree/main/src/utility/lua_logger
+
+You need to place in the root of the registered folder like :
+
+```
+Z:\config\katana
+├── llloger.lua
+└── kui
+    └── ...
+```
+
+So we can simply do `local logging = require("llloger")`
+
+---
+
 As a last step you only need to put the content of
 [opscript.kui.hierarchical.lua](../opscript.kui.hierarchical.lua)
 in the OpScript's node `script.lua` parameter. 
-(And see [User Arguments](#user-arguments) section for the other options).
+(And see [User Arguments](#3-user-arguments) section for the other options).
+Of course, use the `.array.lua` version for `array` instancing.
 
-## As one file script.
+### As one file script.
 
 TODO not built yet.
+
+Goal would be to remove the module dependencies and have the whole code
+in one big-ass lua file.
 
 
 ## 2. Source Configuration
@@ -338,4 +362,4 @@ TODO
 
 ---
 [![root](https://img.shields.io/badge/back_to_root-536362?)](../README.md)
-[![next](https://img.shields.io/badge/next_page-developer-4f4f4f?labelColor=fcb434)](DEVELOPER.md)
+[![next](https://img.shields.io/badge/▶_next_page-culling-4f4f4f?labelColor=fcb434)](CULLING.md)

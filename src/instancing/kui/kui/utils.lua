@@ -5,7 +5,7 @@ todo
 
 local logging = require("lllogger")
 local logger = logging:new("kui.utils")
--- log message from here can only be error
+-- log message from here are only error
 logger.formatting:set_tbl_display_functions(false)
 logger.formatting:set_str_display_quotes(true)
 
@@ -163,7 +163,7 @@ function _M:get_user_attr(time, name, default_value)
         default_value(any): value to return if user attr not found
           you can use the special token <$error> to raise an error instead
     Returns:
-        table: Katana DataAttribute or default value wrap in a table
+        table or any: table of value on attribute or default value
     ]]
     local argvalue = Interface.GetOpArg(self:conkat("user.",name))
 
@@ -174,7 +174,7 @@ function _M:get_user_attr(time, name, default_value)
       self:logerror("[get_user_attr] user attribute <",name,"> not found.")
 
     else
-      return { default_value }
+      return default_value
 
     end
 

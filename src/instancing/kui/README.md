@@ -28,3 +28,8 @@ solution for instancing based on point-cloud locations.
 
 
 > Or see the [./doc directory](doc).
+
+
+# Legal
+
+See [LICENSE.md](LICENSE.md).

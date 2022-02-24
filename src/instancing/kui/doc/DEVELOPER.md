@@ -1,7 +1,8 @@
 # Developer
 
-[![previous](https://img.shields.io/badge/previous_page-index-4f4f4f?labelColor=fcb434)](INDEX.md)
-[![root](https://img.shields.io/badge/back_to_root-536362?)](../README.md)
+[![previous](https://img.shields.io/badge/culling-◀_previous_page-fcb434?labelColor=4f4f4f)](CULLING.md)
+[![root](https://img.shields.io/badge/back_to_root-536362)](../README.md)
+[![index](https://img.shields.io/badge/back_to_index-blue)](INDEX.md)
 
 
 Section related to code development.
@@ -113,5 +114,6 @@ local attrs = {
 ```
 
 ---
-[![previous](https://img.shields.io/badge/previous_page-developer-4f4f4f?labelColor=fcb434)](INDEX.md)
-[![root](https://img.shields.io/badge/back_to_root-536362?)](../README.md)
+[![previous](https://img.shields.io/badge/culling-◀_previous_page-fcb434?labelColor=4f4f4f)](CULLING.md)
+[![root](https://img.shields.io/badge/back_to_root-536362)](../README.md)
+[![index](https://img.shields.io/badge/back_to_index-blue)](INDEX.md)

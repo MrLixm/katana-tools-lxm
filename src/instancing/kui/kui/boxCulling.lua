@@ -3,39 +3,13 @@ version=0.0.1
 todo
 ]]
 
+local logging = require("lllogger")
+local logger = logging:new("kui.boxCulling")
+logger.formatting:set_tbl_display_functions(false)
+logger.formatting:set_str_display_quotes(true)
 
---[[ __________________________________________________________________________
-  Katana UTILITIES
-]]
-
-
-local function get_user_attr(time, name, default_value)
-    --[[
-    Return an OpScipt user attribute.
-    If not found return the default_value. (unless asked to raise an error)
-
-    Args:
-        time(int): frame the attribute must be queried at
-        name(str): attribute location (don't need the <user.>)
-        default_value(any): value to return if user attr not found
-          you can use the special token <$error> to raise an error instead
-    Returns:
-        table: Katana DataAttribute or default value wrap in a table
-    ]]
-    local argvalue = Interface.GetOpArg(conkat("user.",name))
-
-    if argvalue then
-      return argvalue:getNearestSample(time)
-
-    elseif default_value=="$error" then
-      logerror("[get_user_attr] user attribute <",name,"> not found.")
-
-    else
-      return { default_value }
-
-    end
-
-end
+local PointCloudData = require("kui.PointCloudData")
+local utils = require("kui.utils")
 
 
 --[[ __________________________________________________________________________
@@ -72,14 +46,18 @@ local function is_point_in_boundingbox(bounding_box, point)
 
 end
 
+
 local function locations_to_bounds(meshs_locations)
-  -- Iterate through all the meshs_locations to return their bounding boxes
-  --
-  -- Parameters:
-  --  meshs_locations(table): {"CEL","CEL",...}
-  --
-  -- Returns:
-  --  table: {{mesh bb},...}
+  --[[
+  Iterate through all the meshs_locations to return their bounding boxes
+
+  Parameters:
+    meshs_locations(table): {"CEL","CEL",...}
+
+  Returns:
+    table:
+      {{mesh bb},...}
+  ]]
 
   local cullingMeshsBounds = {}
   --  Loop variables
@@ -113,21 +91,40 @@ local function run()
 
   local time = Interface.GetCurrentTime()
 
+  local u_pointcloud_sg = utils:get_user_attr(
+    time,
+    "pointcloud_sg",
+    "$error"
+  )[1]  -- type: str
   -- culling_locations(table): {"CEL","CEL",...}
-  local culling_locations = get_user_attr(time, "culling_locations", "$error")
+  local culling_locations = utils:get_user_attr(
+    time,
+    "culling_locations",
+    "$error"
+  )
 
-  -- Iterate through all the culling mesh locatiosn to get their bounding boxes
+  -- process the source pointcloud
+  logger:info("Started processing source <", u_pointcloud_sg, ">.")
+  local pointdata
+  pointdata = PointCloudData:new(u_pointcloud_sg, time)
+  pointdata:build()
+  logger:info(
+      "Finished processing source <", u_pointcloud_sg, ">.",
+      pointdata.point_count, " points found."
+  )
+  logger:debug("pointdata = \n", pointdata, "\n")
+
+  -- Iterate through all the culling mesh locations to get their bounding boxes
   -- cullingMeshsBounds(table): {{mesh bb},...}
-  local cullingMeshsBounds = locations_to_bounds(cullingMeshLocations)
+  local cullingMeshsBounds = locations_to_bounds(culling_locations)
 
 
   -- Loop trough all the points of the pointcloud
   --  loop variables:
   local current_point = {}
   local point_visibility
-  local points = pointcloud_attributes["P"]:getValue()
 
-  for i=0, #points/3-1 do
+  for i=0, pointdata.point_count - 1 do
 
     point_visibility = 1  -- the point is visible by default
 
