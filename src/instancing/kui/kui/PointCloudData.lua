@@ -544,6 +544,14 @@ function PointCloudData:new(location, time)
       )
       return
     end
+    if utils.get_katana_version() < 400 then
+      logger:error(
+        "[PointCloudData][_convert_to_matrix] Aborted. Current Katana version <",
+        utils.get_katana_version(),
+        "> is not supported by this method. Require Katana 4.0+"
+      )
+      return
+    end
 
     local v
     local matrices = {}
@@ -932,6 +940,15 @@ function PointCloudData:new(location, time)
       self.common.rotationX = false
       self.common.rotationY = false
       self.common.rotationZ = false
+    end
+    if self.common.matrix and self.settings.convert_trs_to_matrix ~= 0 then
+      self.settings.convert_trs_to_matrix = 0
+      logger:warning(
+        "[PointCloudData][_validate] Source <", self.location,
+        "> declare a $matrix token but also ask to convert TRS to matrix. \z
+         <convert_trs_to_matrix> is as such disabled"
+      )
+
     end
 
     -- verify that if one rotationX/Y/Z is declared, all other 2 also are

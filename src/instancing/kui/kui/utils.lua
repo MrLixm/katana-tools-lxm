@@ -205,4 +205,18 @@ function _M.radian_to_degree(radian)
 end
 
 
+function _M.get_katana_version()
+  --[[
+  Returns:
+    num:
+      Katana version as a float number like 451.00008
+  ]]
+
+  local version = Config.Get("KATANA_VERSION") -- "4.5.1.000008"
+  version = version:gsub("%.", "", 2)
+  version = tonumber(version)
+  return version
+
+end
+
 return _M
