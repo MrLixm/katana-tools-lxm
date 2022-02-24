@@ -1,5 +1,5 @@
 --[[
-version=0.0.6
+version=0.0.7
 todo
 ]]
 
@@ -143,16 +143,14 @@ function PointCloudData:new(location, time)
     sources(table): num keys
     arbitrary(table): keys are instance target attribute path
     __attrdata(table or false):
+      temporary buffer for data used on the fly
       set by _get_attr_data(), make sure the method has been called before use
-    __buffer2(any or false):
-      used to store value without having to create a new local variable
 
   See ./README.md for detailed structure.
   ]]
 
   local attrs = {
     ["__attrdata"]=false,
-    ["__buffer2"]=false,
     ["time"]=time,
     ["location"]=location,
     ["common"]={},
@@ -209,45 +207,48 @@ function PointCloudData:new(location, time)
   end
 
   function attrs:get_attr_value(attr_name, pid, raw)
-  --[[
-  Return the values for the given attribute name.
-  It can be a slice for the given pid, or the entire range of values.
-  The values has already been processed and is a DataAttribute instance except
-  if raw=true.
+    --[[
+    Return the values for the given attribute name.
+    It can be a slice for the given pid, or the entire range of values.
+    The values has already been processed and is a DataAttribute instance except
+    if raw=true.
 
-  ! Must be loop safe.
+    ! Must be loop safe.
 
-  Args:
-    attr_name(str):
-      name for the key to query.
-      Can be one of <common>/<arbiratry> or just <sources>.
+    Args:
+      attr_name(str):
+        name for the key to query.
+        Can be one of <common>/<arbiratry> or just <sources>.
 
-    pid(int or nil):
-      point index: which point to use. If not specified return
-      the whole table. !! starts at 0 !!
+      pid(int or nil):
+        point index: which point to use. If not specified return
+        the whole table. !! starts at 0 !!
 
-    raw(bool or nil):
-      If true return the values as their corresponding DataAttribute instance.
-      false by default (if nil)
+      raw(bool or nil):
+        If true return the values as their corresponding DataAttribute instance.
+        false by default (if nil)
 
-  Returns:
-    DataAttribute or nil:
-      DataAttribute instance or nil if <attr_name> is empty (=false).
-  ]]
-    -- TODO returned buffer2 is not a copy but always the same table !
-    -- can cause issue if values not "baked" somewhere
+    Returns:
+      DataAttribute or table or nil:
+        DataAttribute instance or nil if <attr_name> is empty (=false).
+    ]]
+
+    local buf
+
     if attr_name == "sources" then
-      self.__buffer2 = {}
+      buf = {}
       for index, source_data in pairs(self.sources) do
         -- index should start counting at 0
-        self.__buffer2[tonumber(index) + 1] = source_data.path
+        buf[tonumber(index) + 1] = source_data.path
       end
       if raw==true then
-        return self.__buffer2
+        return buf
       else
-        return StringAttribute(self.__buffer2)
+        return StringAttribute(buf)
       end
     end
+
+
 
     -- this set self.__attrdata
     self:_get_attr_data(attr_name)
@@ -258,21 +259,22 @@ function PointCloudData:new(location, time)
 
     -- no point specified, return all the values
     if pid == nil then
-      self.__buffer2 = self.__attrdata["processed"]  -- table
+      buf = self.__attrdata["processed"]  -- table
     -- else return a slice of the table
     else
-      self.__buffer2 = {}
+      buf = {}
       -- grouping usually vary between 1 and 16(matrices), so small loop.
-      for i=1, self.__attrdata["grouping"] do
-        self.__buffer2[#self.__buffer2 + 1] = self.__attrdata["processed"][self.__attrdata["grouping"] * pid + i]
+      for grpi=1, self.__attrdata["grouping"] do
+        buf[#buf + 1] = self.__attrdata["processed"][self.__attrdata["grouping"] * pid + grpi]
       end
     end
 
+
     -- return as Katana DataAttribute, with the tuple size specified from grouping
     if raw==true then
-      return self.__buffer2
+      return buf
     else
-      return self.__attrdata["type"](self.__buffer2, self.__attrdata["grouping"])
+      return self.__attrdata["type"](buf, self.__attrdata["grouping"])
     end
 
   end
@@ -284,14 +286,8 @@ function PointCloudData:new(location, time)
     Returns:
       num:
     ]]
-    local index = self:get_attr_value("index", pid)  -- DataAttribute
-    -- TODO I don't trust getValue to return only a num, test this.
-    index = index:getValue()
-    if type(index) ~= "number" then
-      utils:logerror("[PointCloudData][get_index_at_point] index:getValue() didn't \z
-      returned a number as expected. Report this issue to the developer.")
-    end
-
+    local index = self:get_attr_value("index", pid, true)  -- table
+    index = index[1]
     return index
   end
 
@@ -309,12 +305,12 @@ function PointCloudData:new(location, time)
       bool: true if the point is hidden and thus should not be created
     ]]
 
-    local data = self:get_attr_value("hide", pid) -- table of 0/1
+    local data = self:get_attr_value("hide", pid, true) -- table of 0/1
     if not data then
       return false
     end
 
-    if data:getValue() == 1 then
+    if data[1] == 1 then
       return true
     end
 
@@ -512,8 +508,9 @@ function PointCloudData:new(location, time)
         pcvalues[i] = 0
       end
       -- iterate through point to skip and set them on <pcvalues>
+      -- !! self.common.skip.values starts at 0 !! hence the + 1
       for _, to_hide in ipairs(self.common.skip.values) do
-        pcvalues[to_hide] = 1
+        pcvalues[to_hide + 1] = 1
       end
 
       self["common"]["hide"] = build_attr_structure(
