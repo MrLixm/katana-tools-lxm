@@ -1,0 +1,3 @@
+[submodule "src/instancing/KUI"]
+	path = src/instancing/KUI
+	url = https://github.com/MrLixm/KUI
