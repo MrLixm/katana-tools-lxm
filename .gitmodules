@@ -1,3 +1,6 @@
 [submodule "src/instancing/KUI"]
 	path = src/instancing/KUI
 	url = https://github.com/MrLixm/KUI
+[submodule "src/utility/lua_logger"]
+	path = src/utility/lua_logger
+	url = https://github.com/MrLixm/llloger
