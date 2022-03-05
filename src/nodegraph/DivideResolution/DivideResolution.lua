@@ -1,13 +1,13 @@
 --[[
-VERSION = 0.0.5
+version=6
+author=Liam Collod
+last_modified=05/03/2022
 
 OpScript for Foundry's Katana software
 
 Divide the current render resolution by the given amount.
 The divider amount can be supplied or by creating an OpArg (user.divider) or by creating a gsv "resolution_divider".
 
-Author: Liam Collod
-Last Modified: 19/10/2021
 
 [OpScript setup]
 parameters:
@@ -41,7 +41,7 @@ local round = function(a, prec)
 end
 
 
-function get_divider(frame)
+local function get_divider()
     --[[
     Return the resolution divider from a graphstatevariable named 'resolution_divider' if it exists, else from the OpArg user.divider
 
@@ -57,13 +57,13 @@ function get_divider(frame)
 
     local argvalue = Interface.GetOpArg("user.divider")
     if argvalue then
-        return argvalue:getNearestSample(frame)[1]
+        return argvalue:getValue()
     end
     
 end
 
 
-function run()
+local function run()
 
     local frame = Interface.GetCurrentTime() -- int
     local divider = get_divider(frame)
@@ -73,10 +73,10 @@ function run()
         return
     end
 
-    local resolution = Interface.GetAttr("renderSettings.resolution"):getNearestSample(frame)[1]
+    local resolution = Interface.GetAttr("renderSettings.resolution"):getValue()
     resolution = ResolutionTable.GetResolution(resolution)
     if not resolution then
-        print("[DivideResolution][run] renderSettings.resolution has an issue.  ResolutionTable.GetResolution() returned nil.")
+        error("[DivideResolution][run] renderSettings.resolution has an issue.  ResolutionTable.GetResolution() returned nil.")
         return
     end
 
