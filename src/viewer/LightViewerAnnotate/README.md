@@ -14,13 +14,11 @@ lg_test_expo:15.5_samples:2
 It is possible to query the light color attribute to use them to color the light itself or its annotation.
 
 
-
 ![demo](./demo.gif)
 
 
-
-The published script was made for Arnold but it is possible to configure it for any renderer. See the [Development](#development) section under.
-
+The published script was made for Arnold, but it is possible to configure
+it for any renderer.
 
 
 ## Installation
@@ -30,20 +28,16 @@ The published script was made for Arnold but it is possible to configure it for 
 Create a new OpScript node and copy/paste the content of the .lua script inside.
 Follow the instructions on the top comment to setup the node.
 
-### .katana
+### .xml
 
-Use the `File > Import` function to import the `.katana` file, this will create a new node with everything already configured.
+Copy the content of the [LightViewerAnnotate.node.xml](LightViewerAnnotate.node.xml)
+file and paste it into the Katana Nodegraph.
 
-
-
-## Development
-
-Changing the variable `LOG_LEVEL` line 25 to `debug`  can help during the development process.
 
 ### Integrating a new render-engine
 
-All the modifications will be in the `Light` class (line 235)
-Go down to line 294 where we define the class attribute `attributes`:
+All the modifications will be in the `Light` class (line 175)
+Go down to line 234 we define the class attribute `attributes`:
 
 This is a table where key=string, value=table. 
 
@@ -54,6 +48,7 @@ This is a table where key=string, value=table.
 
 You already have the most basic method created to query values : `get_attr`
 
-​	You only need to pass the attribute location and a default value.
+You only need to pass the attribute location and a default value.
 
-You can of course create any other method as long as it return something (it will be converted later to string anyway)
+You can of course create any other method as long as it returns something 
+(it will be converted later to string anyway)

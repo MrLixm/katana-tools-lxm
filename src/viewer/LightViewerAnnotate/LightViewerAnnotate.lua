@@ -1,13 +1,12 @@
 --[[
-VERSION=1.0.0
+version=10
+author=Liam Collod
+last_modified=05/03/2022
 
 OpScript for Foundry's Katana software
 This script is compatible with Arnold but can be modified to others.
 
 Annotate (& color) lights in the viewer using their attributes.
-
-Author: Liam Collod
-Last Modified: 18/10/2021
 
 [OpScript setup]
 parameters:
@@ -19,18 +18,35 @@ user(type)(default_value):
   user.lights_colored(bool)(true): true to color the light in the viewer
   user.annotation_template(str)("<name>"): Use tokens to build the annotation for each light.
      tokens are defined in Light.attributes and are surrounded with <>
+
+[License]
+Copyright 2022 Liam Collod
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
 ]]
-
-
-local LOG_LEVEL = "info" -- debug, info, warning, error
 
 
 --[[ __________________________________________________________________________
   LUA UTILITIES
 ]]
 
+local split
+local round
+local table2string
+local stringify
 
-function split(str, sep)
+split = function(str, sep)
   --[[
   Source: https://stackoverflow.com/a/25449599/13806195
   ]]
@@ -43,14 +59,14 @@ function split(str, sep)
 end
 
 
-function round(num, numDecimalPlaces)
+round = function(num, numDecimalPlaces)
   -- Source: http://lua-users.org/wiki/SimpleRound
   -- Returns: number
   return tonumber(string.format("%." .. (numDecimalPlaces or 0) .. "f", num))
 end
 
 
-function table2string(tablevalue)
+table2string = function(tablevalue)
     --[[
   Convert a table to a one line string.
   If the key is a number, only the value is kept.
@@ -86,7 +102,7 @@ function table2string(tablevalue)
 end
 
 
-function stringify(source)
+stringify = function(source)
     --[[ Convert the source to a readable string , based on it's type.
     All numbers are rounded to 3 decimals.
     ]]
@@ -111,88 +127,13 @@ function stringify(source)
 end
 
 
-logging = {}
-
-
-function logging:new(name)
-  --[[
-  Simple logging system.
-
-  Parameters:
-    name(str): name of the logger to be displayed on every message
-  ]]
-
-  local attrs = {
-    name = name,
-    levels = {
-      debug = {
-        name = "  DEBUG",
-        weight = 10
-      },
-      info = {
-        name = "   INFO",
-        weight = 20
-      },
-      warning = {
-        name = "WARNING",
-        weight = 30
-      },
-      error = {
-        name = "  ERROR",
-        weight = 40,
-      }
-    },
-    level = nil
-  }
-
-  attrs["level"] = attrs["levels"][LOG_LEVEL]
-
-  function attrs:_log(level, message)
-
-    if level.weight < self.level.weight then
-      return
-    end
-
-    message = stringify(message)
-
-    print("[OpScript]["..level.name.."]["..self.name.."] "..message)
-
-  end
-
-  function attrs:debug(message)
-    self:_log(self.levels.debug, message)
-  end
-
-  function attrs:info(message)
-    self:_log(self.levels.info, message)
-  end
-
-  function attrs:warning(message)
-    self:_log(self.levels.warning, message)
-  end
-
-  function attrs:error(message)
-    self:_log(self.levels.error, message)
-  end
-
-  return attrs
-
-end
-
-
-logger = logging:new("LightViewerAnnotate")
-
-
 
 --[[ __________________________________________________________________________
   API UTILITIES
 ]]
 
 
-local time = Interface.GetCurrentTime() -- int
-
-
-function color_gamma(color, gamma)
+local function color_gamma(color, gamma)
   --[[
   Change the gamma of the given color value (float3)
 
@@ -208,13 +149,12 @@ function color_gamma(color, gamma)
 
 end
 
-function get_user_attr(frame, name, default_value)
+local function get_user_attr(name, default_value)
     --[[
     Return an OpScipt user attribute.
     If not found return the default_value
 
     Args:
-        frame(int): current frame
         name(str): attribute location (don't need the <user.>
         default_value(any): value to return if user attr not found
     Returns:
@@ -222,7 +162,7 @@ function get_user_attr(frame, name, default_value)
     ]]
     local argvalue = Interface.GetOpArg("user."..name)
     if argvalue then
-        return argvalue:getNearestSample(frame)[1]
+        return argvalue:getValue()
     else
       return default_value
     end
@@ -231,7 +171,6 @@ end
 
 
 local Light = {}
-
 function Light:new(location)
   --[[
   This is the classes that will allow to query a light attributes.
@@ -274,7 +213,7 @@ function Light:new(location)
     ]]
     local attr = Interface.GetAttr(attr_name)
     if attr then
-      return attr:getNearestSample(time)
+      return attr:getNearestSample(0)
     else
       return default_value
     end
@@ -322,7 +261,7 @@ function Light:new(location)
 
 end
 
-function process_annotation(annotation, light)
+local function process_annotation(annotation, light)
   --[[
   Args:
     annotation(str): annotation template submitted by the user (with tokens)
@@ -341,12 +280,12 @@ function process_annotation(annotation, light)
 end
 
 
-function run()
+local function run()
 
-  local annotation_template = get_user_attr(time, "annotation_template", "<name>")
-  local annotation_color_gamma = get_user_attr(time, "annotation_color_gamma", 1)
-  local annotation_colored = get_user_attr(time, "annotation_colored", 1)
-  local lights_colored = get_user_attr(time, "lights_colored", 1)
+  local annotation_template = get_user_attr("annotation_template", "<name>")
+  local annotation_color_gamma = get_user_attr("annotation_color_gamma", 1)
+  local annotation_colored = get_user_attr("annotation_colored", 1)
+  local lights_colored = get_user_attr("lights_colored", 1)
 
 
   local light = Light:new(Interface.GetInputLocationPath())
@@ -372,7 +311,7 @@ function run()
 
   Interface.SetAttr("viewer.default.annotation.text", StringAttribute(annotation))
 
-  logger:debug("[run] Finished. Annotation set to <"..annotation..">")
+  --print("[LightViewerAnnotate][run] Finished. Annotation set to <"..annotation..">")
 
 end
 
