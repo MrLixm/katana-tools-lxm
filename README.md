@@ -20,11 +20,17 @@ Else each script should always have a top docstring for documentation.
 
 ## What's Inside
 
+- attributes
+
+  - [`attrTypeSwap`](./src/attributes/attrTypeSwap) 
+      
+      Quickly change the data type used for an attribute for another one.
+
 - viewer
   
   - [`LightViewerAnnotate`](./src/viewer/LightViewerAnnotate) 
   
-    Annotate (& color) lights in the viewer using their attributes.
+      Annotate (& color) lights in the viewer using their attributes.
   
   - [`PointcloudWidth`](./src/viewer/PointcloudWidth)
   
@@ -34,6 +40,12 @@ Else each script should always have a top docstring for documentation.
   
       Allow merging xform transformations on a pointcloud location to the `geometry.point.P` attribute.
   
+- instancing
+
+  - [`KUI`](./src/instancing/KUI) 
+      
+      Provide a flexible solution for instancing based on point-cloud locations. 
+
 - nodegraph
 
   - [`CreateGSV`](./src/nodegraph/CreateGSV)

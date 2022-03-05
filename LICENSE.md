@@ -1,6 +1,6 @@
 Unless content of this repository specify a license as a `LICENSE.md` file
 or in the top comment of any file, the content is licensed under 
-the follwing terms :
+the following terms :
 
 “Commons Clause” License Condition v1.0
 
