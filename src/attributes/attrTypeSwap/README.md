@@ -44,3 +44,7 @@ DoubleAttribute
 StringAttribute
 ```
 
+## Features
+
+Support the use of multiple time samples for the source attribute.
+
