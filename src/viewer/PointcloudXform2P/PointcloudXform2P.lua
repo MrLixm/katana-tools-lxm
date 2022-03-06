@@ -1,22 +1,24 @@
 --[[
-version=7
+version=8
 author=Liam Collod
 last_modified=05/03/2022
 
 OpScript for Foundry's Katana software.
 
-Allow merging xform transformations on a pointcloud to
-the geometry.point.P attribute. (so translate+rotate only).
+  Allow merging xform transformations on a pointcloud to
+  the geometry.point.P attribute. (so translate+rotate only).
 
-! If your xform transform is interactive, think to disable
-this ops before trying to move it in the viewer.
+  ! If your xform transform is interactive, think to disable
+  this ops before trying to move it in the viewer.
+
+  Supports motion blur.
 
 [OpScript setup]
 - OpArg:
     /
 - parameters:
-    location: pointcloud scene graph location
-    applyWhere: at specific location
+    location: pointcloud scene graph location(s)
+    applyWhere: at specific location OR at locations matching CEL
 
 [License]
 Copyright 2022 Liam Collod
@@ -35,28 +37,41 @@ limitations under the License.
 
 ]]
 
+-- make a global local to improve perfs in big loops
+local v3d = Imath.V3d
 
 local function run()
 
-  print("[PointcloudXform2P][run] Started for location="..Inteface.GetInputLocationPath())
+  print("[PointcloudXform2P][run] Started for location="..Interface.GetInputLocationPath())
   local stime = os.clock()
 
-  local points = Interface.GetAttr("geometry.point.P"):getNearestSample(0)
+  local points_attr = Interface.GetAttr("geometry.point.P")
 
   local xform = Interface.GetGlobalXFormGroup(Interface.GetInputLocationPath(), 0)
-  local matrix = XFormUtils.CalcTransformMatrixAtTime(xform, 0):getNearestSample(0)
-  matrix = Imath.M44d(matrix)
+  local matrix_attr = XFormUtils.CalcTransformMatrixAtExistingTimes(xform)  -- DoubleAttribute
 
+  local matrix
+  local points
   local points_new = {}
+  local pvector local pnew
 
-  for i=0, #points/3-1 do
+  for smplindex=0, matrix_attr:getNumberOfTimeSamples() do
+    pnew = {}
+    smplindex = matrix_attr:getSampleTime(smplindex)
+    points = points_attr:getNearestSample(smplindex)
+    matrix = Imath.M44d(matrix_attr:getNearestSample(smplindex))
 
-    local pvector = Imath.V3d(points[i*3+1], points[i*3+2], points[i*3+3])
-    local pnew = pvector * matrix
+    for i=0, #points/3-1 do
 
-    points_new[#points_new + 1] = pnew.x
-    points_new[#points_new + 1] = pnew.y
-    points_new[#points_new + 1] = pnew.z
+      pvector = v3d(points[i*3+1], points[i*3+2], points[i*3+3]) * matrix
+
+      pnew[#pnew + 1] = pvector.x
+      pnew[#pnew + 1] = pvector.y
+      pnew[#pnew + 1] = pvector.z
+
+    end
+
+    points_new[smplindex] = pnew
 
   end
 
