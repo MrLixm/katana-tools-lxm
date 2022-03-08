@@ -1,6 +1,15 @@
 # attrTypeSwap
 
-Quickly change the data type used for an attribute for another one.
+![lua](https://img.shields.io/badge/Lua-any-000090?logo=lua&logoColor=white)
+![katana version](https://img.shields.io/badge/Katana-any-FCB123?logo=katana&logoColor=white)
+
+Quickly change the data type used on an attribute for another one.
+
+## Features
+
+Support the use of multiple time samples for the source attribute. (motion-blur).
+
+2 method available for attribute processing.
 
 # Use
 
@@ -44,7 +53,9 @@ DoubleAttribute
 StringAttribute
 ```
 
-## Features
+### user.method
 
-Support the use of multiple time samples for the source attribute.
+which method to use for querying attributes:
+- `table` : max of 2^27 (134 million) values per attribute
+- `array` _(default)_: a bit slower, no size limit 
 
