@@ -5,10 +5,9 @@
 Collections of scripting stuff I wrote for Foundry's Katana software.
 
 
-| | | |
-|:-------------------------:|:-------------------------:|:-------------------------:|
-|<img width="800" alt="Create GSV scipt" src="./src/nodegraph/CreateGSV/demo.gif">  CreateGSV |  <img width="800" alt="LightViewerAnnotate script" src="./src/viewer/LightViewerAnnotate/demo.gif"> LightViewerAnnotate |<img width="800" alt="PointcloudWidth" src="./src/viewer/PointcloudWidth/demo.gif">  PointcloudWidth  |
-
+|<img width="800" alt="Create GSV scipt" src="./src/nodegraph/CreateGSV/demo.gif">  CreateGSV |  <img width="800" alt="LightViewerAnnotate script" src="./src/viewer/LightViewerAnnotate/demo.gif"> LightViewerAnnotate |
+|:-------------------------:|:-------------------------:|
+|<img width="800" alt="PointcloudWidth" src="./src/viewer/PointcloudWidth/demo.gif">  PointcloudWidth  |<img width="800" alt="KUI" src="./src/instancing/KUI/doc/img/thumbnail.jpg">  KUI  |
 
 ## Utilisation
 
@@ -25,6 +24,10 @@ Else each script should always have a top docstring for documentation.
   - [`attrTypeSwap`](./src/attributes/attrTypeSwap) 
       
       Quickly change the data type used for an attribute for another one.
+  
+  - [`attrMath`](./src/attributes/attrMath) 
+      
+      Apply basic math operations on attributes values.
 
 - viewer
   
@@ -74,7 +77,7 @@ Else each script should always have a top docstring for documentation.
 See [LICENSE.md](./LICENSE.md) for full licence.
 
 License should be specified in each directory or in the top of each file else
-the terms specified in the above LICENSE.md file shoudl apply.
+the terms specified in the above LICENSE.md file should apply.
 
 
 ## Contact
