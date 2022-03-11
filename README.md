@@ -7,7 +7,7 @@ Collections of scripting stuff I wrote for Foundry's Katana software.
 
 |<img width="800" alt="Create GSV scipt" src="./src/nodegraph/CreateGSV/demo.gif">  CreateGSV |  <img width="800" alt="LightViewerAnnotate script" src="./src/viewer/LightViewerAnnotate/demo.gif"> LightViewerAnnotate |
 |:-------------------------:|:-------------------------:|
-|<img width="800" alt="PointcloudWidth" src="./src/viewer/PointcloudWidth/demo.gif">  PointcloudWidth  |<img width="800" alt="KUI" src="./src/instancing/KUI/doc/img/thumbnail.jpg">  KUI  |
+|<img width="800" alt="PointcloudWidth" src="./src/viewer/PointcloudWidth/demo.gif">  PointcloudWidth  |<img width="800" alt="KUI" src="https://raw.githubusercontent.com/MrLixm/KUI/dev/doc/img/thumbnail.jpg">  KUI  |
 
 ## Utilisation
 
@@ -58,6 +58,12 @@ Else each script should always have a top docstring for documentation.
   - [`DivideResolution`](./src/nodegraph/DivideResolution)
 
       Divide the current render resolution by the given amount.
+
+- supertools
+  
+  - [`GSVDashboard`](./src/supertools/GSVDashboard)
+  
+    Preview and edit the Graph State Variables (GSV) in your nodegraph.
 
 - utility
   

@@ -4,3 +4,6 @@
 [submodule "src/utility/lua_logger"]
 	path = src/utility/lua_logger
 	url = https://github.com/MrLixm/llloger
+[submodule "src/supertools/GSVDashboard"]
+	path = src/supertools/GSVDashboard
+	url = https://github.com/MrLixm/GSVDashboard
