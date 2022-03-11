@@ -45,7 +45,7 @@ Else each script should always have a top docstring for documentation.
   
 - instancing
 
-  - [`KUI`](./src/instancing/KUI) 
+  - [`KUI`](https://github.com/MrLixm/KUI) 
       
       Provide a flexible solution for instancing based on point-cloud locations. 
 
@@ -61,13 +61,13 @@ Else each script should always have a top docstring for documentation.
 
 - supertools
   
-  - [`GSVDashboard`](./src/supertools/GSVDashboard)
+  - [`GSVDashboard`](https://github.com/MrLixm/GSVDashboard)
   
     Preview and edit the Graph State Variables (GSV) in your nodegraph.
 
 - utility
   
-  - [`llloger`](./src/utility/lua_logger)
+  - [`llloger`](https://github.com/MrLixm/llloger)
   
     A simple lua logging module based on Python's one.
   
