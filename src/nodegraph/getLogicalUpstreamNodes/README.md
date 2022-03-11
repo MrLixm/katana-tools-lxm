@@ -1,35 +1,42 @@
-# ![PyScript](https://img.shields.io/badge/type-Python-yellow) Get Logical Upstream Nodes (glun)
+# ![python](https://img.shields.io/badge/python-333333?labelColor=FED142) Get Logical Upstream Nodes (glun)
+
+![Python](https://img.shields.io/badge/Python-2+-4f4f4f?labelColor=FED142&logo=python)
+![katana version](https://img.shields.io/badge/Katana-any-4f4f4f?labelColor=111111&logo=katana&logoColor=FCB123)
 
 Parse scene to return a list of contributing node connected to the
 given source node.
 
-![demo](./demo.png)
+<img src="doc/img/demo.png" width="500">
+
 Return all the node on the blue logical stream.
 
-## Use
+# Features
 
-Code should be fairly documented.
+- Configurable : choose how to treat groups nodes.
+- Logical parsing: visit only node contributing to building the scene
+- Should cover the majority of nodegraph cases (if you do have one that yield
+a weird result please fill an issue !)
 
-### InLine
+```python
+settings = ParseSettings()
+settings.exluded_asGroupsNodeType = ["GafferThree"]
+scene = SceneParser()
+scene.settings = settings
+scene.source = NodegraphAPI.GetAllSelectedNodes()[0]
 
-To quickly display node in teh script-editors :
+result = scene.get_upstream_nodes()
+print(result)
+```
 
-- just add `__test()` at the end.
-- Select source node.
-- Run in the script editor
-- Check result in script editor console.
 
-You can optionaly modify `__test()` to filter evn more the result.
+# Documentation
 
-### Module
+[![visit_documentation](https://img.shields.io/badge/visit_documentation-blue)](doc/INDEX.md)
 
-You can use it as a module.
 
-- You can delete the __test() function
-- Build your parsing settings using `ParseSettings()` special dict.
-- run `get_logical_upstream_nodes()`, check docstring for required arguments.
+> Or see the [./doc directory](doc).
 
-## Licensing
+# Licensing
 
 Apache License 2.0
 
