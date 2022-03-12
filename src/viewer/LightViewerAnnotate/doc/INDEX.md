@@ -1,4 +1,4 @@
-# Index
+# <img src="img/logotype.svg" height="20"> Index
 
 Welcome on the `LightViewerAnnotate` module's documentation.
 
@@ -18,8 +18,6 @@ file and paste it into the Katana Nodegraph.
 Create a new OpScript node and copy/paste the content of the .lua script inside.
 You then need to set the following user arguments :
 
-### user.annotation_color_gamma
-`(float)` `(2)`: gamma controler for the color if lights and annotations
 ### user.annotation_colored
 `(bool)` `(true)`: true to color the annotation in the viewer
 ### user.lights_colored
@@ -27,7 +25,14 @@ You then need to set the following user arguments :
 ### user.annotation_template
 `(str)` `("<name>")`: Use tokens to build the annotation for each light.
 tokens are defined in `Light.tokens` and are surrounded with `<>`
+### user.color_hue
+`(float)` `(1)`: 0-1 range. Only affect viewer color.
+### user.color_saturation
+`(float)` `(1)`: 0-1 range. Only affect viewer color.
+### user.color_value
+`(float)` `(1)`: 0-1 range. Only affect viewer color.
 
+--- 
 It is recommended then to set the CEL to match all light locations.
 Usually this would work fine :
 
@@ -53,11 +58,13 @@ Listed are only objects useful for extend the script features/support.
 
 ##### ![attribute](https://img.shields.io/badge/attribute-353535) `function` Light.tokens.$token.$renderer.func
 
-optional if not `params`
+optional if not `params`. A function to execute that return the value
+for the corresponding token on the current location. As you guessed it the `params`
+keys just under are the argument passed to this function.
 
 ##### ![attribute](https://img.shields.io/badge/attribute-353535) `table` Light.tokens.$token.$renderer.params
 
-optional
+optional. Arguments for the `func` key function.
 
 ### ![method](https://img.shields.io/badge/method-4f4f4f) Light:get
 ### ![method](https://img.shields.io/badge/method-4f4f4f) Light:to_annotation

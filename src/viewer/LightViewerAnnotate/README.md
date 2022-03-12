@@ -8,20 +8,20 @@ Annotate (& color) lights in the viewer using their attributes.
 
 The annotation is generated based on token that will query the corresponding attributes on the light location.
 
-For example `<name>_expo:<exposure>_samples:<samples>` would give
+For example `<name> expo:<exposure> samples:<samples>` would give :
 ```
-lg_test_expo:15.5_samples:2
+lg_test expo:15.5 samples:2
 ```
 
 
-![demo](doc/img/demo.gif)
+![demo](doc/img/header.jpg)
 
 # Features
 
 - Multiple render-engine support (expandable): `3delight`, `Arnold`, `RenderMan`
 - Color annotations based on light's color.
 - Color the light in the viewer based on its color.
-- Control the color gamma to adjust visibility.
+- HSV control for the viewer color.
 - Flexible token configuration.
 
 

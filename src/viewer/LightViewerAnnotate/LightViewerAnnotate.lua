@@ -1,5 +1,5 @@
 --[[
-version=17
+version=20
 author=Liam Collod
 last_modified=12/03/2022
 
@@ -12,11 +12,13 @@ OpScript for Foundry's Katana software
     location:  /root/world/lgt//*{@type=="light"}
     applyWhere: at locations matching CEL
   user(type)(default_value):
-    user.annotation_color_gamma(float)(2): gamma controler for the color if lights and annotations
     user.annotation_colored(bool)(true): true to colro the annotation in the viewer
     user.lights_colored(bool)(true): true to color the light in the viewer
     user.annotation_template(str)("<name>"): Use tokens to build the annotation for each light.
        tokens are defined in Light.tokens and are surrounded with <>
+    user.color_hue(float)(1): 0-1 range
+    user.color_saturation(float)(1): 0-1 range
+    user.color_value(float)(1): 0-1 range
 
 [License]
 Copyright 2022 Liam Collod
@@ -153,23 +155,6 @@ stringify = function(source)
 end
 
 
-color_gamma =  function(color, gamma)
-  --[[
-  Change the gamma of the given color value (float3)
-
-  Args:
-    color(table): table of float
-    gamma(float): gamma value to apply
-  ]]
-  local out = color
-  for index, color_channel in pairs(color) do
-    out[index] = color_channel ^ gamma
-  end
-  return out
-
-end
-
-
 get_user_attr = function(name, default_value)
     --[[
     Return an OpScipt user attribute.
@@ -193,83 +178,105 @@ get_user_attr = function(name, default_value)
 end
 
 
-local function hslto(p, q, t)
-    if t < 0 then
-      t = t + 1
-    end
-    if t > 1 then
-      t = t - 1
-    end
-    if t < .16667 then
-      return p + (q - p) * 6 * t
-    end
-    if t < .5 then
-      return q
-    end
-    if t < .66667 then
-      return p + (q - p) * (.66667 - t) * 6
-    end
-    return p
-end
-
-local function hsl(color, h, s, l)
+local function hsv(color, h, s, v)
   --[[
-  Source: https://github.com/Wavalab/rgb-hsl-rgb/blob/master/rgbhsl.lua
-  I don't really care if it's an accurate HSL it just for quick viewer preview.
+  Credit <colour-science> and <Easyrgb>.
 
   Args:
     color(table): r, g and b channel as a table
-    h(num): hue ; 0-360 range
-    s(num): saturation; 0-1 range
-    l(num): lightness; 0-1 range
+    h(num): hue ; 0-1 range; 1 for no effect
+    s(num): saturation; 0-1 range; 1 for no effect
+    v(num): value; 0-1 range; 1 for no effect
   ]]
 
-  -- 1. RGB to HSL
   local r = color[1]
   local g = color[2]
   local b = color[3]
 
-  local ch, cs, cl
-  local d
+  -- 1. RGB to HSV
+  local ch
+  local cs
+  local cv
 
-  local max, min = math.max(r, g, b), math.min(r, g, b)
-  b = max + min
-  ch = b / 2
-  if max == min then
-    return 0, 0, ch
+  local d1
+  local da
+  local db
+  local dc
+
+  local hx
+
+  cv = math.max(r,g,b)
+  d1 = cv - math.min(r,g,b)  -- delta
+
+  cs = d1 / cv
+  if d1 == 0 then
+    cs = 0
   end
-  cs, cl = ch, ch
-  d = max - min
-  cs = cl > .5 and d / (2 - b) or d / b
 
-  if max == r then
-    ch = (g - b) / d + (g < b and 6 or 0)
-  elseif max == g then
-    ch = (b - r) / d + 2
-  elseif max == b then
-    ch = (r - g) / d + 4
+  da = (((cv - r) / 6) + (d1 / 2)) / d1
+  db = (((cv - g) / 6) + (d1 / 2)) / d1
+  dc = (((cv - b) / 6) + (d1 / 2)) / d1
+
+  ch = dc - db
+  if g == cv then
+    ch = (1 / 3) + da - dc
+  end
+  if b == cv then
+    ch = (2 / 3) + db - da
+  end
+  if ch < 0 then
+    ch = ch + 1
+  end
+  if ch > 1 then
+    ch = ch - 1
+  end
+  if d1 == 0 then
+    ch = 0
   end
 
   -- 2. Apply per-channel modification
-  ch = (ch * .16667) * (h/360)
+  ch = ch * h
   cs = cs * s
-  cl = cl * l
+  cv = cv * v
 
-  -- 3. HSL to RGB
-  if cs == 0 then
-    return cl, cl, cl
+  -- 3. HSV to RGB
+  hx = ch * 6
+  if hx == 6 then
+    hx = 0
   end
 
-  -- (we just reuse r and g here to not waste creating a new local)
-  r = cl < .5 and cl * (1 + cs) or cl + cs - cl * cs
-  g = 2 * cl - r
+  d1 = math.floor(hx)
+  da = cv * (1 - cs)
+  db = cv * (1 - cs * (hx - d1))
+  dc = cv * (1 - cs * (1-(hx - d1)))
 
-  return {
-    hslto(g, r, ch + .33334),
-    hslto(g, r, ch),
-    hslto(g, r, ch - .33334)
-  }
+  if d1 == 0 then
+    r = cv
+    g = dc
+    b = da
+  elseif d1 == 1 then
+    r = db
+    g = cv
+    b = da
+  elseif d1 == 2 then
+    r = da
+    g = cv
+    b = dc
+  elseif d1 == 3 then
+    r = da
+    g = db
+    b = cv
+  elseif d1 == 4 then
+    r = dc
+    g = da
+    b = cv
+  else
+    r = cv
+    g = da
+    b = db
+  end
 
+  return { r, g, b }
 
 end
 
@@ -490,13 +497,12 @@ end
 local function run()
 
   local u_annotation_template = get_user_attr("annotation_template", "<name>")
-  local u_annotation_color_gamma = get_user_attr("annotation_color_gamma", 1)
   local u_annotation_colored = get_user_attr("annotation_colored", 1)
   local u_lights_colored = get_user_attr("lights_colored", 1)
 
   local u_hsl_h = get_user_attr("color_hue", 0)
   local u_hsl_s = get_user_attr("color_saturation", 1)
-  local u_hsl_l = get_user_attr("color_lightness", 1)
+  local u_hsl_v = get_user_attr("color_value", 1)
 
   -- 1. Process the annotation
   local annotation = Light:to_annotation(u_annotation_template)
@@ -506,9 +512,13 @@ local function run()
   )
 
   -- 2. Process the color
+  -- initial color is linear
   local color = Light:get("color") -- table of float or nil
-  color = color_gamma(color, u_annotation_color_gamma) or color
-  color = hsl(color, u_hsl_h, u_hsl_s, u_hsl_l)
+  color = hsv(color, u_hsl_h, u_hsl_s, u_hsl_v)
+  -- apply a basic 2.2 transfer-function for display
+  color[1] = color[1]^2.2
+  color[2] = color[2]^2.2
+  color[3] = color[3]^2.2
 
   if u_annotation_colored == 1 then
     Interface.SetAttr(
