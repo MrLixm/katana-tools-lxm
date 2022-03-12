@@ -1,4 +1,4 @@
-# ![python](https://img.shields.io/badge/python-333333?labelColor=FED142) Get Logical Upstream Nodes (glun)
+# ![python](https://img.shields.io/badge/python-333333?labelColor=FED142) Get Logical Upstream Nodes
 
 ![Python](https://img.shields.io/badge/Python-2+-4f4f4f?labelColor=FED142&logo=python)
 ![katana version](https://img.shields.io/badge/Katana-any-4f4f4f?labelColor=111111&logo=katana&logoColor=FCB123)
@@ -6,9 +6,8 @@
 Parse scene to return a list of contributing node connected to the
 given source node.
 
-<img src="doc/img/demo.png" width="500">
+<img src="doc/img/cover.jpg" width="800">
 
-Return all the node on the blue logical stream.
 
 # Features
 

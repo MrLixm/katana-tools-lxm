@@ -1,0 +1,13 @@
+{
+  "name": "glun",
+  "version": "1.0.0",
+  "author": "Liam Collod",
+  "license": "Apache 2.0",
+  "description": "Parse scene to return a list of node connected to the given source node.",
+  "keywords": ["vfx", "katana", "python", "node", "nodegraph"],
+  "dependencies": {},
+  "engines": {
+    "katana": "~4.0.1",
+    "python": "2.7.13"
+  }
+}

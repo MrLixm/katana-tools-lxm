@@ -1,4 +1,4 @@
-# Index
+# <img src="img/logotype.svg" width="100"> Index
 
 Welcome on the `getLogicalUpstreamNodes` (glun) module documentation.
 
@@ -9,7 +9,7 @@ Welcome on the `getLogicalUpstreamNodes` (glun) module documentation.
 
 ## InLine
 
-To quickly display node in the script-editors :
+You just need to quickly list nodes in the ScriptEditor :
 
 - just add `__test()` at the end.
 - Select source node.
