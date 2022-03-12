@@ -1,35 +1,33 @@
-# Divide Resolution
+# ![OpScript](https://img.shields.io/badge/OpScript-4f4f4f?labelColor=blueviolet) Divide Resolution
 
-![OpScript](https://img.shields.io/badge/type-OpScript-blueviolet)
+
+![lua](https://img.shields.io/badge/Lua-any-4f4f4f?labelColor=000090&logo=lua&logoColor=white)
+![katana version](https://img.shields.io/badge/Katana-any-4f4f4f?labelColor=111111&logo=katana&logoColor=FCB123)
 
 Divide the current render resolution by the given amount.
 
-![demo](./demo.gif)
 
+# Installation
 
-
-## Installation
-
-### .lua
+## .lua
 
 Create a new OpScript node and copy/paste the content of the .lua script inside.
-Follow the instructions on the top comment to setup the node.
+Follow the instructions on the top comment to config the node.
 
 
-
-## Guide
+# Guide
 
 The divider can be configured in two ways:
 
-### OpArg
+## OpArg
 
 You can create an `user.divider` number parameter on the OpScript node.
 
-### GSV
+## GSV
 
 You can set it using a variable named `resolution_divider`. This one take priority over the above one.
 
-## Licensing
+# Licensing
 
 Apache License 2.0
 

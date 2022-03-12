@@ -1,0 +1,12 @@
+{
+  "name": "divr",
+  "version": "1.0.6",
+  "author": "Liam Collod",
+  "license": "Apache 2.0",
+  "description": "Divide the current render resolution by the given amount.",
+  "keywords": ["vfx", "katana", "opscript", "resolution"],
+  "dependencies": {},
+  "engines": {
+    "katana": "~4.0.1"
+  }
+}
