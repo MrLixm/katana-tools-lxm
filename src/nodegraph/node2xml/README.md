@@ -1,5 +1,8 @@
 # node2xml
 
+![Python](https://img.shields.io/badge/Python-2+-4f4f4f?labelColor=FED142&logo=python)
+![katana version](https://img.shields.io/badge/Katana-any-4f4f4f?labelColor=111111&logo=katana&logoColor=FCB123)
+
 Nothing ground-breaking, just wrap the Katana API methods for converting nodes
 to an XML representation that you can write to file or print.
 

@@ -1,6 +1,6 @@
 """
 version=2
-python=2+
+python>=2.7.1
 author=Liam Collod
 last_modified=03/03/2022
 
