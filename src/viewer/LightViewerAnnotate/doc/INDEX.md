@@ -43,6 +43,11 @@ Usually this would work fine :
 You can of course modify the CEL to be more specific if you don't want to annotate 
 all the lights.
 
+# Use
+
+![demo gif](img/demo.gif)
+
+
 # API
 
 Listed are only objects useful for extend the script features/support.
