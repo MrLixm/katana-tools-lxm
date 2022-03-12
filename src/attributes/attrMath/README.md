@@ -1,7 +1,7 @@
-# attrMath
+# ![OpScript](https://img.shields.io/badge/OpScript-4f4f4f?labelColor=blueviolet) attrMath
 
-![lua](https://img.shields.io/badge/Lua-any-000090?logo=lua&logoColor=white)
-![katana version](https://img.shields.io/badge/Katana-any-FCB123?logo=katana&logoColor=white)
+![lua](https://img.shields.io/badge/Lua-any-4f4f4f?labelColor=000090&logo=lua&logoColor=white)
+![katana version](https://img.shields.io/badge/Katana-any-4f4f4f?labelColor=111111&logo=katana&logoColor=FCB123)
 
 Apply basic math operation on attributes values.
 

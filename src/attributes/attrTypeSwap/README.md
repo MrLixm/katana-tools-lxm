@@ -1,15 +1,14 @@
-# attrTypeSwap
+# ![OpScript](https://img.shields.io/badge/OpScript-4f4f4f?labelColor=blueviolet) attrTypeSwap
 
-![lua](https://img.shields.io/badge/Lua-any-000090?logo=lua&logoColor=white)
-![katana version](https://img.shields.io/badge/Katana-any-FCB123?logo=katana&logoColor=white)
+![lua](https://img.shields.io/badge/Lua-any-4f4f4f?labelColor=000090&logo=lua&logoColor=white)
+![katana version](https://img.shields.io/badge/Katana-any-4f4f4f?labelColor=111111&logo=katana&logoColor=FCB123)
 
 Quickly change the data type used on an attribute for another one.
 
 ## Features
 
-Support the use of multiple time samples for the source attribute. (motion-blur).
-
-2 method available for attribute processing.
+- Support the use of multiple time samples for the source attribute. (motion-blur).
+- 2 method available for attribute processing.
 
 # Use
 
@@ -40,7 +39,7 @@ Each row corresponds to an attribute to modify where :
 
 Exemple : 
 
-![opscript interface screenshot](img.png)
+![opscript interface screenshot](doc-attributes.png)
 
 List of DataAttribute can be found on
 [the Katana documentation](https://learn.foundry.com/katana/5.0/dev-guide/OpsAndOpScript/Attributes/OpScript.html#IntAttribute)
