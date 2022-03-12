@@ -12,7 +12,7 @@ If you copy/paste the script and run it in the Python tab, it will just print
 the XML representation of the selected nodes.
 Uncomment the 3 last lines if you wish to write the XML to a file.
 
-Exemple of XML for an Alembic_In node :
+Example of XML for an Alembic_In node :
 
 ```xml
 <katana release="4.5v1" version="4.5.1.000008">

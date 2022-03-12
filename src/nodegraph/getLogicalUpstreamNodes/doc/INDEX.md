@@ -98,7 +98,7 @@ bool
 ### ![key](https://img.shields.io/badge/key-4f4f4f) ParseSettings["logical"]
 
 If `True`, only node that contribute to building the scene are visited. For
-exemple, a switch node will only yield one input that contribute to build the
+example, a switch node will only yield one input that contribute to build the
 scene.
 
 ```

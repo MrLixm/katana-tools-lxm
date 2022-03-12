@@ -37,7 +37,7 @@ Each row corresponds to an attribute to modify where :
 - column [1*n] = path of the attribute relative to the location set 
 - column [2*n] = new DataAttribute type to use, ex: StringAttribute
 
-Exemple : 
+Example : 
 
 ![opscript interface screenshot](doc-attributes.png)
 
