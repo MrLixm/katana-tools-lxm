@@ -1,6 +1,8 @@
-# Light Viewer Annotate
+# ![OpScript](https://img.shields.io/badge/OpScript-4f4f4f?labelColor=blueviolet) Light Viewer Annotate
 
-![OpScript](https://img.shields.io/badge/type-OpScript-blueviolet)
+![lua](https://img.shields.io/badge/Lua-any-4f4f4f?labelColor=000090&logo=lua&logoColor=white)
+![katana version](https://img.shields.io/badge/Katana-any-4f4f4f?labelColor=111111&logo=katana&logoColor=FCB123)
+
 
 Annotate (& color) lights in the viewer using their attributes.
 
@@ -11,44 +13,41 @@ For example `<name>_expo:<exposure>_samples:<samples>` would give
 lg_test_expo:15.5_samples:2
 ```
 
-It is possible to query the light color attribute to use them to color the light itself or its annotation.
+
+![demo](doc/img/demo.gif)
+
+# Features
+
+- Multiple render-engine support (expandable): `3delight`, `Arnold`, `RenderMan`
+- Color annotations based on light's color.
+- Color the light in the viewer based on its color.
+- Control the color gamma to adjust visibility.
+- Flexible token configuration.
 
 
-![demo](./demo.gif)
+# Documentation
 
+[![documentation](https://img.shields.io/badge/visit_documentation-blue)](doc/INDEX.md)
 
-The published script was made for Arnold, but it is possible to configure
-it for any renderer.
+> Or see the [./doc directory](doc).
 
+# Legal
 
-## Installation
+Apache License 2.0
 
-### .lua
+See [LICENSE.md](LICENSE.md) for full licence.
 
-Create a new OpScript node and copy/paste the content of the .lua script inside.
-Follow the instructions on the top comment to setup the node.
+- ✅ The licensed material and derivatives may be used for commercial purposes.
+- ✅ The licensed material may be distributed.
+- ✅ The licensed material may be modified.
+- ✅ The licensed material may be used and modified in private.
+- ✅ This license provides an express grant of patent rights from contributors.
+- 📏 A copy of the license and copyright notice must be included with the licensed material.
+- 📏 Changes made to the licensed material must be documented
 
-### .xml
+You can request a specific license by contacting me at [monsieurlixm@gmail.com](mailto:monsieurlixm@gmail.com) .
 
-Copy the content of the [LightViewerAnnotate.node.xml](LightViewerAnnotate.node.xml)
-file and paste it into the Katana Nodegraph.
+<a href='https://ko-fi.com/E1E3ALNSG' target='_blank'>
+<img height='36' style='border:0px;height:36px;' src='https://cdn.ko-fi.com/cdn/kofi1.png?v=3' border='0' alt='Buy Me a Coffee at ko-fi.com' />
+</a> 
 
-
-### Integrating a new render-engine
-
-All the modifications will be in the `Light` class (line 175)
-Go down to line 234 we define the class attribute `attributes`:
-
-This is a table where key=string, value=table. 
-
- - The key correspond to an arbitrary token name (without the `<>`)
- - The value must be a table with 2 fixed keys:
-   	- func : function to execute that will return the value querried.
-      	- params : table of arguments to pass to the above function (unpack() will be used)
-
-You already have the most basic method created to query values : `get_attr`
-
-You only need to pass the attribute location and a default value.
-
-You can of course create any other method as long as it returns something 
-(it will be converted later to string anyway)

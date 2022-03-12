@@ -1,23 +1,22 @@
 --[[
-version=10
+version=16
 author=Liam Collod
-last_modified=05/03/2022
-
-OpScript for Foundry's Katana software
-This script is compatible with Arnold but can be modified to others.
+last_modified=12/03/2022
 
 Annotate (& color) lights in the viewer using their attributes.
 
+OpScript for Foundry's Katana software
+
 [OpScript setup]
-parameters:
+  parameters:
     location:  /root/world/lgt//*{@type=="light"}
     applyWhere: at locations matching CEL
-user(type)(default_value):
-  user.annotation_color_gamma(float)(2): gamma controler for the color if lights and annotations
-  user.annotation_colored(bool)(true): true to colro the annotation in the viewer
-  user.lights_colored(bool)(true): true to color the light in the viewer
-  user.annotation_template(str)("<name>"): Use tokens to build the annotation for each light.
-     tokens are defined in Light.attributes and are surrounded with <>
+  user(type)(default_value):
+    user.annotation_color_gamma(float)(2): gamma controler for the color if lights and annotations
+    user.annotation_colored(bool)(true): true to colro the annotation in the viewer
+    user.lights_colored(bool)(true): true to color the light in the viewer
+    user.annotation_template(str)("<name>"): Use tokens to build the annotation for each light.
+       tokens are defined in Light.tokens and are surrounded with <>
 
 [License]
 Copyright 2022 Liam Collod
@@ -45,6 +44,28 @@ local split
 local round
 local table2string
 local stringify
+local err
+local color_gamma
+local get_user_attr
+
+err = function (...)
+  --[[
+  Raise an error.
+  Concat the given arguments to string and pass them as the error's message.
+  ]]
+
+  local buf = {"[LgVA]["}
+  buf[ #buf + 1 ] = Interface.GetInputLocationPath()
+  buf[ #buf + 1 ] = "]"
+
+  for i=1, select("#",...) do
+    buf[ #buf + 1 ] = tostring(select(i,...))
+  end
+
+  error(table.concat(buf))
+
+end
+
 
 split = function(str, sep)
   --[[
@@ -103,37 +124,36 @@ end
 
 
 stringify = function(source)
-    --[[ Convert the source to a readable string , based on it's type.
-    All numbers are rounded to 3 decimals.
-    ]]
-    local number_round = 3  -- number of decimals to keep.
+  --[[
+  Convert the source to a readable string , based on it's type.
+  All numbers are rounded to 3 decimals.
+  ]]
+  if not source then
+    return ""
+  end
 
-    if (type(source) == "table") then
-      if #source == 1 then
-        return source[1]
-      end
-      source = table2string(source)
+  local number_round = 3  -- number of decimals to keep.
 
-    elseif (type(source) == "number") then
-      source = tostring(round(source, number_round))
-
-    else
-      source = tostring(source)
-
+  if (type(source) == "table") then
+    if #source == 1 then
+      return stringify(source[1])
     end
+    source = table2string(source)
+
+  elseif (type(source) == "number") then
+    source = tostring(round(source, number_round))
+
+  else
+    source = tostring(source)
+
+  end
 
   return source
 
 end
 
 
-
---[[ __________________________________________________________________________
-  API UTILITIES
-]]
-
-
-local function color_gamma(color, gamma)
+color_gamma =  function(color, gamma)
   --[[
   Change the gamma of the given color value (float3)
 
@@ -149,10 +169,13 @@ local function color_gamma(color, gamma)
 
 end
 
-local function get_user_attr(name, default_value)
+
+get_user_attr = function(name, default_value)
     --[[
     Return an OpScipt user attribute.
-    If not found return the default_value
+    If not found return the default_value.
+    ! The user attribute must not be an array of value else only the first item
+    is returned.
 
     Args:
         name(str): attribute location (don't need the <user.>
@@ -170,108 +193,211 @@ local function get_user_attr(name, default_value)
 end
 
 
-local Light = {}
-function Light:new(location)
+
+--[[ __________________________________________________________________________
+  API
+]]
+
+local function get_light_renderer()
   --[[
-  This is the classes that will allow to query a light attributes.
-  The system was designed to be flexible(render-agnostic) but this example
-  if for Arnold.
+  From the currently visited light location, return which render-engine it
+   was build for.
 
-  Customization is performed through self.attributes which is a table:
-    - each table key is an abitrary string representing the attribute name
-      - its value is a table of 2 fixed items:
-        - key:func = function to execute that will return the value querried.
-        - key:params = table of arguments to pass to the above function (with unpack())
+  Raise an error if the renderer can't be found.
 
-  You can of course create any method here that can be then used in self.attributes.
-
+  Returns:
+    str: ai, dl, prman
   ]]
 
-  local attrs = {
-    location = location,
-    attributes = {}
-  }
-
-  function attrs:get(attr_name)
-    --[[
-    Return the light attribute value for the given attribute name
-
-    Returns:
-      type depends of what's queried, can be nil
-    ]]
-    local attr = self.attributes[attr_name]
-    return attr.func(self, unpack(attr.params))
+  local mat = Interface.GetAttr("material")
+  -- the shader name should always be the first Group index 0
+  if string.find(mat:getChildName(0), "arnold") then
+    return "ai"
+  elseif string.find(mat:getChildName(0), "dl") then
+    return "dl"
+  elseif string.find(mat:getChildName(0), "prman") then
+    return "prman"
+  else
+    err("[get_light_renderer] Can't find a render engine for this light !")
   end
-
-  function attrs:get_attr(attr_name, default_value)
-  --[[
-    Args:
-        attr_name(str): name of the attribute to get
-        default_value(any): value to return if attr not found
-    Returns:
-        type depends of input
-    ]]
-    local attr = Interface.GetAttr(attr_name)
-    if attr then
-      return attr:getNearestSample(0)
-    else
-      return default_value
-    end
-  end
-
-  function attrs:get_name()
-    --[[
-    Returns:
-      str: name of the light based on its scene graph location.
-    ]]
-    local name = split(self.location, "/")
-    return name[#name]  -- return the last element of the list
-  end
-
-  -- post process the attrs for the one requiring the methods to be created.
-
-  attrs.attributes = {
-      aov = {
-        func = attrs.get_attr,
-        params = {"material.arnoldLightParams.aov", "default"},
-      },
-      name = {
-        func = attrs.get_name,
-        params = {},
-      },
-      color = {
-        func = attrs.get_attr,
-        params = {"material.arnoldLightParams.color", {1,1,1}},
-      },
-      samples = {
-        func = attrs.get_attr,
-        params = {"material.arnoldLightParams.samples", 1},
-      },
-      exposure = {
-        func = attrs.get_attr,
-        params = {"material.arnoldLightParams.exposure", 0.0},
-      },
-      intensity = {
-        func = attrs.get_attr,
-        params = {"material.arnoldLightParams.intensity", 1.0},
-      },
-  }
-
-  return attrs
 
 end
 
-local function process_annotation(annotation, light)
+-- scene graph location of the current light visited
+local LOCATION = Interface.GetInputLocationPath()
+local RENDERER = get_light_renderer()
+
+
+local function get_light_attr(attrs_list, default_value)
+--[[
+  Args:
+      attrs_list(table of str):
+        numerical table of attributes path.
+        Function return at the first attribute to return a value.
+      default_value(any):
+        value to return if all attributes return nothing, pass <error> to raise
+        an error instead.
+
+  Returns:
+      type depends of input
+  ]]
+
+  for i=1, #attrs_list do
+
+    local attr = Interface.GetAttr(attrs_list[i])
+    if attr then
+      return attr:getNearestSample(0)
+    end
+
+  end
+
+  if default_value==error then
+    err(
+      "[get_light_attr] No attribute found from",
+      stringify(attrs_list)
+    )
+  else
+    return default_value
+  end
+
+end
+
+
+local function get_light_name()
+  --[[
+  Returns:
+    str: name of the light based on its scene graph location.
+  ]]
+  local name = split(LOCATION, "/")
+  return name[#name]  -- return the last element of the list
+end
+
+--[[
+Light table object
+
+the <tokens> key hold all the supported tokens.
+- Each token key hold render-engine keys
+  - each render-engine key hold a table with a <func> and a <params> key.
+
+the default value for <get_light_attr> <params> is returned if the attribute
+is not set locally (not modified)
+]]
+local Light = {
+
+  ["tokens"] = {
+
+    ["name"] = {
+      ["ai"] = { func = get_light_name},
+      ["dl"] = { func = get_light_name},
+      ["prman"] = { func = get_light_name}
+    },
+
+    ["aov"] = {
+      ["ai"] = {
+        func = get_light_attr,
+        params = { { "material.arnoldLightParams.aov" }, "default"},
+      },
+      ["dl"] = {},
+      ["prman"] = {
+        func = get_light_attr,
+        params = { { "material.prmanLightParams.lightGroup" }, "none"},
+      },
+    },
+
+    ["color"] = {
+      ["ai"] = {
+        func = get_light_attr,
+        params = { { "material.arnoldLightParams.color" }, {1,1,1}},
+      },
+      ["dl"] = {
+        func = get_light_attr,
+        params = { { "material.dlLightParams.color" }, {1,1,1}},
+      },
+      ["prman"] = {
+        func = get_light_attr,
+        params = { { "material.prmanLightParams.lightColor" }, {1,1,1}},
+      },
+    },
+
+    ["samples"] = {
+      ["ai"] = {
+        func = get_light_attr,
+        params = { { "material.arnoldLightParams.samples" }, 1},
+      },
+      ["dl"] = {},
+      ["prman"] = {
+        func = get_light_attr,
+        params = { { "material.prmanLightParams.fixedSampleCount" }, 0},
+      },
+    },
+
+    ["exposure"] = {
+      ["ai"] = {
+        func = get_light_attr,
+        params = { { "material.arnoldLightParams.exposure" }, 0},
+      },
+      ["dl"] = {
+        func = get_light_attr,
+        params = { { "material.dlLightParams.exposure" }, 0},
+      },
+      ["prman"] =  {
+        func = get_light_attr,
+        params = { { "material.prmanLightParams.exposure" }, 0},
+      },
+    },
+
+    ["intensity"] = {
+      ["ai"] = {
+        func = get_light_attr,
+        params = { { "material.arnoldLightParams.intensity" }, 1},
+      },
+      ["dl"] = {
+        func = get_light_attr,
+        params = { { "material.dlLightParams.intensity" }, 1},
+      },
+      ["prman"] = {
+        func = get_light_attr,
+        params = { { "material.arnoldLightParams.intensity" }, 1},
+      },
+    }
+
+  }
+
+}
+
+function Light:get(attr_name)
+  --[[
+  Return the light attribute value for the given attribute name
+
+  Returns:
+    type depends of what's queried, can be nil
+  ]]
+  local attr = self.tokens[attr_name] or {}
+  attr = attr[RENDERER] or {}  -- return the data for the current render-engine
+
+  local func = attr.func
+  local params = attr.params
+  if func then
+    if params then
+      return func(unpack(attr.params))
+    else
+      return func()
+    end
+  else
+    return nil
+  end
+end
+
+function Light:to_annotation(annotation)
   --[[
   Args:
     annotation(str): annotation template submitted by the user (with tokens)
-    light(table): currently processed light object.
   Returns:
     str: annotation with the tokens replaced
   ]]
-  for attr_name, attr_getter in pairs(light.attributes) do
-    local token = "<"..attr_name..">"
-    local value = stringify(light:get(attr_name))
+  for attr_name, _ in pairs(self.tokens) do
+    local token = ("<%s>"):format(attr_name)
+    local value = stringify(self:get(attr_name))
     annotation = string.gsub(annotation, token, value)
   end
 
@@ -280,36 +406,38 @@ local function process_annotation(annotation, light)
 end
 
 
+
 local function run()
 
-  local annotation_template = get_user_attr("annotation_template", "<name>")
-  local annotation_color_gamma = get_user_attr("annotation_color_gamma", 1)
-  local annotation_colored = get_user_attr("annotation_colored", 1)
-  local lights_colored = get_user_attr("lights_colored", 1)
+  local u_annotation_template = get_user_attr("annotation_template", "<name>")
+  local u_annotation_color_gamma = get_user_attr("annotation_color_gamma", 1)
+  local u_annotation_colored = get_user_attr("annotation_colored", 1)
+  local u_lights_colored = get_user_attr("lights_colored", 1)
 
+  -- 1. Process the annotation
+  local annotation = Light:to_annotation(u_annotation_template)
+  Interface.SetAttr(
+      "viewer.default.annotation.text",
+      StringAttribute(annotation)
+  )
 
-  local light = Light:new(Interface.GetInputLocationPath())
-  local annotation = process_annotation(annotation_template, light)
-  local color = light:get("color") -- table of float or nil
-  if color then
-     color = color_gamma(color, annotation_color_gamma)
-  end
+  -- 2. Process the color
+  local color = Light:get("color") -- table of float or nil
+  color = color_gamma(color, u_annotation_color_gamma) or color
 
-  if annotation_colored==1 then
+  if u_annotation_colored == 1 then
     Interface.SetAttr(
         "viewer.default.annotation.color",
         FloatAttribute(color or {0.1, 0.1, 0.1})
     )
   end
 
-  if lights_colored==1 then
+  if u_lights_colored == 1 then
     Interface.SetAttr(
         "viewer.default.drawOptions.color",
         FloatAttribute(color or {0.1, 1.0, 1.0})
     )
   end
-
-  Interface.SetAttr("viewer.default.annotation.text", StringAttribute(annotation))
 
   --print("[LightViewerAnnotate][run] Finished. Annotation set to <"..annotation..">")
 
