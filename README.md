@@ -1,20 +1,18 @@
-![header](./img/header.jpg)
+![header:katana logo](./img/header.jpg)
 
-**Author:** Liam Collod.
 
 Collections of scripting stuff I wrote for Foundry's Katana software.
 
 
-|<img width="800" alt="Create GSV scipt" src="./src/nodegraph/CreateGSV/demo.gif">  CreateGSV |  <img width="800" alt="LightViewerAnnotate script" src="./src/viewer/LightViewerAnnotate/demo.gif"> LightViewerAnnotate |
+|<img width="800" alt="Create GSV scipt" src="./src/nodegraph/CreateGSV/demo.gif">  CreateGSV |  <img width="800" alt="LightViewerAnnotate script" src="./src/viewer/LightViewerAnnotate/doc/img/header.jpg"> LightViewerAnnotate |
 |:-------------------------:|:-------------------------:|
-|<img width="800" alt="PointcloudWidth" src="./src/viewer/PointcloudWidth/demo.gif">  PointcloudWidth  |<img width="800" alt="KUI" src="https://raw.githubusercontent.com/MrLixm/KUI/dev/doc/img/thumbnail.jpg">  KUI  |
+|<img width="800" alt="getLogicalUpstreamNodes" src="./src/nodegraph/getLogicalUpstreamNodes/doc/img/cover.jpg">  getLogicalUpstreamNodes  |<img width="800" alt="KUI" src="https://raw.githubusercontent.com/MrLixm/KUI/dev/doc/img/thumbnail.jpg">  KUI  |
 
 ## Utilisation
 
 You can have a look at the  `README.md` file in each folder.
 
 Else each script should always have a top docstring for documentation.
-
 
 
 ## What's Inside
@@ -58,6 +56,14 @@ Else each script should always have a top docstring for documentation.
   - [`DivideResolution`](./src/nodegraph/DivideResolution)
 
       Divide the current render resolution by the given amount.
+  
+  - [`getLogicalUpstreamNodes`](./src/nodegraph/getLogicalUpstreamNodes)
+     
+    Parse scene to return a list of node connected to the given source node.
+
+  - [`node2xml`](./src/nodegraph/node2xml)
+     
+    Convert the selected nodes to an XML representation.
 
 - supertools
   
@@ -71,19 +77,13 @@ Else each script should always have a top docstring for documentation.
   
     A simple lua logging module based on Python's one.
   
-  - [`getLogicalUpstreamNodes`](./src/utility/getLogicalUpstreamNodes)
-     
-    Parse scene to return a list of contributing node connected to the
-    given source node.
 
     
 
 ## Licensing
 
-See [LICENSE.md](./LICENSE.md) for full licence.
-
 License should be specified in each directory or in the top of each file else
-the terms specified in the above LICENSE.md file should apply.
+the terms specified in the root's [LICENSE.md](./LICENSE.md) file will apply.
 
 
 ## Contact
