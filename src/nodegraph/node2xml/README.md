@@ -6,11 +6,14 @@
 Nothing ground-breaking, just wrap the Katana API methods for converting nodes
 to an XML representation that you can write to file or print.
 
-# Use
+ - The interesting file is [node2xml.exporter.xml](node2xml.exporter.xml). You
+can copy/paste it in Katana and you will get a node to quickly export any other
+nodegraph's node to xml. (It uses [node2xml.button.py](node2xml.button.py))
 
-If you copy/paste the script and run it in the Python tab, it will just print
-the XML representation of the selected nodes.
-Uncomment the 3 last lines if you wish to write the XML to a file.
+ - [node2xml.py](node2xml.py) Can be quickly executed in the Python Tab to print
+or write the selected nodes XML.
+
+ - TODO: would be cool to make a shelf script.
 
 Example of XML for an Alembic_In node :
 

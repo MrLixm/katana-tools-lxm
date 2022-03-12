@@ -25,6 +25,13 @@ def print_xml(xml=None):
 
 
 def write_xml(target_dir, target_name, display=False):
+    """
+
+    Args:
+        target_dir(str): path to an existing directory
+        target_name(str): name of the file to write without the extension
+        display(bool): True to also print the xml file
+    """
 
     target_path = os.path.join(target_dir, "{}.xml".format(target_name))
 
@@ -38,14 +45,14 @@ def write_xml(target_dir, target_name, display=False):
         outputStyles=None
     )
 
-    print(
-        "[write_xml] Finished. XML written to <{}>".format(target_path)
-    )
+    print("[write_xml] Finished. XML written to <{}>".format(target_path))
     return
 
 
+WRITE = 0
 print_xml()
-# write_xml(
-#     target_dir=r"G:\personal\code\KUI\workspace\v0001\KUI",
-#     target_name="KUI_Nodes"
-# )
+if WRITE:
+    write_xml(
+        target_dir=r"G:\personal\code\KUI\workspace\v0001\KUI",
+        target_name="KUI_Nodes"
+    )
