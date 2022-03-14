@@ -39,7 +39,7 @@ Else each script should always have a top docstring for documentation.
   
   - [`PointcloudXform2P`](./src/viewer/PointcloudXform2P)
   
-      Allow merging xform transformations on a pointcloud location to the `geometry.point.P` attribute.
+      Merge xform transformations to the `geometry.point.P` attribute.
   
 - instancing
 

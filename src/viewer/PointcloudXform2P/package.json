@@ -1,0 +1,13 @@
+{
+  "name": "pcx2p",
+  "version": "1.0.9",
+  "author": "Liam Collod",
+  "license": "Apache 2.0",
+  "description": "Merge xform transformations to the geometry.point.P attribute.",
+  "keywords": ["vfx", "katana", "python", "xform", "matrix", "transform"],
+  "dependencies": {},
+  "engines": {
+    "katana": "*",
+    "lua": "*"
+  }
+}

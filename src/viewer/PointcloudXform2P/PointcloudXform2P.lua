@@ -1,12 +1,11 @@
 --[[
-version=8
+version=9
 author=Liam Collod
 last_modified=05/03/2022
 
-OpScript for Foundry's Katana software.
+Merge xform transformations to the `geometry.point.P` attribute.
 
-  Allow merging xform transformations on a pointcloud to
-  the geometry.point.P attribute. (so translate+rotate only).
+OpScript for Foundry's Katana software.
 
   ! If your xform transform is interactive, think to disable
   this ops before trying to move it in the viewer.
@@ -17,7 +16,7 @@ OpScript for Foundry's Katana software.
 - OpArg:
     /
 - parameters:
-    location: pointcloud scene graph location(s)
+    location: location(s) to merge the xform attribute
     applyWhere: at specific location OR at locations matching CEL
 
 [License]
@@ -46,6 +45,12 @@ local function run()
   local stime = os.clock()
 
   local points_attr = Interface.GetAttr("geometry.point.P")
+  if not points_attr then
+    error(
+        ("[PointcloudXform2P][run][%s] Location doesn't have a \z
+        <geometry.point.P> attribute."):format(Interface.GetInputLocationPath())
+    )
+  end
 
   local xform = Interface.GetGlobalXFormGroup(Interface.GetInputLocationPath(), 0)
   local matrix_attr = XFormUtils.CalcTransformMatrixAtExistingTimes(xform)  -- DoubleAttribute
