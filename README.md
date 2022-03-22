@@ -65,6 +65,10 @@ Else each script should always have a top docstring for documentation.
      
     Convert the selected nodes to an XML representation.
 
+  - [`BackdropAttrEdit`](./src/nodegraph/BackdropAttrEdit)
+
+      Modify Backdrops nodes attributes.
+
 - supertools
   
   - [`GSVDashboard`](https://github.com/MrLixm/GSVDashboard)
