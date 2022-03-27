@@ -60,7 +60,7 @@ local function run()
   local points_new = {}
   local pvector local pnew
 
-  for smplindex=0, matrix_attr:getNumberOfTimeSamples() do
+  for smplindex=0, matrix_attr:getNumberOfTimeSamples() - 1 do
     pnew = {}
     smplindex = matrix_attr:getSampleTime(smplindex)
     points = points_attr:getNearestSample(smplindex)
