@@ -67,7 +67,6 @@ def write_xml(target_dir, target_name, display=False):
 
     xml.write(
         file=target_path,
-        outputStyles=None
     )
 
     return log("[write_xml] Finished. XML written to <{}>".format(target_path))
