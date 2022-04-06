@@ -1,0 +1,7 @@
+{
+  "__type": "d2gt_token",
+  "lg_hdri_dome": "ArnoldHDRIDomeLightPackage",
+  "lg_hdri_quad": "ArnoldHDRIQuadLightPackage",
+  "exposure": "params.arnoldSurfaceShader.exposure",
+  "filepath": "params.arnoldSurfaceShader.filename"
+}
