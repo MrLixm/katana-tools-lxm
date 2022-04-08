@@ -3,5 +3,7 @@
   "lg_hdri_dome": "ArnoldHDRIDomeLightPackage",
   "lg_hdri_quad": "ArnoldHDRIQuadLightPackage",
   "exposure": "params.arnoldSurfaceShader.exposure",
-  "filepath": "params.arnoldSurfaceShader.filename"
+  "filepath": "params.arnoldSurfaceShader.filename",
+  "FOO45": 45,
+  "lg_spot": "ArnoldSpotLightPackage"
 }
