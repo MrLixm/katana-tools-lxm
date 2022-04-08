@@ -1,7 +1,7 @@
 """
-version=1
+version=2
 author=Liam Collod
-last_modified=07/04/2022
+last_modified=08/04/2022
 python=>2.7.1
 
 """
@@ -15,7 +15,7 @@ import sys
 # only for documentation. (keep compatibility with py2)
 try:
     from typing import List, Type, Optional
-except:
+except ImportError:
     pass
 
 # try for standalone testing purposes
@@ -25,13 +25,14 @@ try:
         PackageSuperToolAPI
     )
     from Katana.Plugins import GafferThreeAPI
-except:
+except ImportError:
     pass
 
 __all__ = [
     "GafferDict",
     "GafferChildrenDict",
-    "TokenDict"
+    "TokenDict",
+    "D2gtGaffer"
 ]
 
 
@@ -149,11 +150,11 @@ class GafferDict(BaseD2gtDict):
 
     @property
     def rootLocation(self):
-        return self.get("rootLocation")
+        return self.get("rootLocation", "/root/world/lgt/gaffer")
 
     @property
     def syncSelection(self):
-        return bool(self.get("syncSelection"))
+        return bool(self.get("syncSelection", 1))
 
     @property
     def children(self):
@@ -594,6 +595,7 @@ def __test01():
         "lg_hdri_quad": "ArnoldQuadLightPackage",
         "exposure": "shaders.arnoldLightParams.exposure",
         "filepath": "shaders.arnoldSurfaceParams.filename",
+        "color": "shaders.arnoldLightParams.color"
     }
     td = TokenDict(token)
 
@@ -619,6 +621,10 @@ def __test01():
                 "params": {
                     "material.<exposure>.value": 15,
                     "material.<exposure>.enable": 1,
+                    "material.<color>.value.i0": 0.9,
+                    "material.<color>.value.i1": 0.3,
+                    "material.<color>.value.i2": 0.1,
+                    "material.<color>.enable": 1,
                 }
             },
 

@@ -1,13 +1,13 @@
 {
   "name": "d2gt",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "author": "Liam Collod",
   "license": "Apache 2.0",
   "description": "Create and build a GafferThree from a python dictionary.",
-  "keywords": ["vfx", "katana", "python", "gafferthree", "nodegraph", "light"],
+  "keywords": ["vfx", "katana", "python", "gafferthree", "nodegraph", "light", "json"],
   "dependencies": {},
   "engines": {
     "katana": "~4.0.1",
-    "python": "2.7.13"
+    "python": ">2.7.13"
   }
 }

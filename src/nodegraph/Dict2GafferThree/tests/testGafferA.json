@@ -18,8 +18,8 @@
       "parent": "/rig/foo",
       "class": "<lg_hdri_quad>_IMS0M3TEXT",
       "params": {
-        "getMaterialNode.<exposure>": 2,
-        "shape": {},
+        "material.<exposure>": 2,
+        "create": {},
         "linking_shadow": {},
         "linking_illum": {}
       }

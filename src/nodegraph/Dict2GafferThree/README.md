@@ -1,10 +1,43 @@
 # ![python](https://img.shields.io/badge/python-333333?labelColor=FED142) Dict 2 GafferThree
 
-![Python](https://img.shields.io/badge/Python-2+-4f4f4f?labelColor=FED142&logo=python)
+![Python](https://img.shields.io/badge/Python-2+-4f4f4f?labelColor=3776ab&logo=python&logoColor=FED142)
 ![katana version](https://img.shields.io/badge/Katana-any-4f4f4f?labelColor=111111&logo=katana&logoColor=FCB123)
 
+Create and build a GafferThree node from a python dictionary.
 
 # Features
+
+- Render Engine agnostic.
+- Flexible thanks to a token system.
+- Simple dictionary syntax.
+
+Demo:
+
+```python
+token = {
+    "__type": "d2gt_token",
+    "lg_hdri_dome": "ArnoldHDRISkydomeLightPackage",
+}
+td = TokenDict(token)
+
+scene = {
+    "__type": "d2gt_gaffer",
+    "name": "GafferThree_studio",
+    "rootLocation": "/root/world/lgt/gaffer",
+    "syncSelection": 1,
+    "children": {
+        "lg_hdri": {
+            "parent": "/rig",
+            "class": "<lg_hdri_dome>",
+            "params": {}
+        },
+
+    }
+}
+gd = GafferDict(scene, tokendict=td)
+gaffer = D2gtGaffer(gafferdict=gd)
+gaffer_node = gaffer.build()
+```
 
 
 # Documentation
