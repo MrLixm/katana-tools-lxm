@@ -1,18 +1,21 @@
 """
+version=1
+author=Liam Collod
+last_modified=07/04/2022
+python=>2.7.1
 
 """
 import json
 import os
-
-# only for documentation. FOr compatibility with py2
 import re
 
+# only for documentation. (keep compatibility with py2)
 try:
-    from typing import List
+    from typing import List, Type, Optional
 except:
     pass
 
-# for standalone testing purposes
+# try for standalone testing purposes
 try:
     from Katana import (
         NodegraphAPI,
@@ -21,6 +24,12 @@ try:
     from Katana.Plugins import GafferThreeAPI
 except:
     pass
+
+__all__ = [
+    "GafferDict",
+    "GafferChildrenDict",
+    "TokenDict"
+]
 
 
 class BaseD2gtDict(dict):
@@ -124,9 +133,10 @@ class GafferDict(BaseD2gtDict):
         Returns a list of Package to create.
 
         Returns:
-            dict of str:
+            Dict[str, Type[GafferChildrenDict]]:
+                Dict[str, Type[GafferChildrenDict]]
         """
-        return self.get("children")  # type: dict
+        return self.get("children")
 
 
 class GafferChildrenDict(BaseD2gtDict):
@@ -139,23 +149,99 @@ class GafferChildrenDict(BaseD2gtDict):
     def __init__(self, build_object, name):
         super(GafferChildrenDict, self).__init__(build_object)
         self.name = name
+        self._parent = None  # type: Optional[GafferChildrenDict]
+        self.children = list()  # type: List[GafferChildrenDict]
+
+    def copy(self):
+        """
+        Returns:
+            GafferChildrenDict:
+        """
+        v = super(GafferChildrenDict, self).copy()
+        v = GafferChildrenDict(v, self.name)
+        v.parent = self.parent
+        v.children = self.children.copy()
+        return
 
     @property
     def parent(self):
-        return self.get("parent")
+        """
+        Returns:
+            GafferChildrenDict or None:
+        """
+        return self._parent
+
+    @parent.setter
+    def parent(self, parent_value):
+        """
+        Args:
+            parent_value(GafferChildrenDict):
+        """
+        self._parent = parent_value
+        parent_value.children.append(self)
+        self["parent"] = parent_value.path
+
+    @property
+    def location(self):
+        """
+        CEL like path relative to the GafferThree CEL indicating where
+        self should be located.
+
+        Returns:
+            str:
+        """
+        return self.get("parent", "")
+
+    @property
+    def path(self):
+        """
+        CEL like path relative to the GafferThree CEL indicating the path
+        to self. (so location + name)
+
+        Returns:
+            str:
+        """
+        return self.location + "/" + self.name
+
+    @property
+    def direct_parent(self):
+        """
+        Return the first direct parent speicifed in the path.
+
+        Returns:
+            str:
+        """
+        return self.location.split("/")[-1] or ""
 
     @property
     def class_(self):
-        return self.get("class")
+        """
+        The Package class to create.
+
+        Returns:
+            str:
+        """
+        return self["class"]
 
     @property
     def params(self):
-        return self.get("params")
+        """
+        The params key that hold a pair of param_path:param_value
+
+        Returns:
+            dict:
+        """
+        return self.get("params", {})
 
 
 class TokenDict(BaseD2gtDict):
     filecheck = "d2gt_token"
 
+
+DefaultRigPkg = GafferChildrenDict(
+    {"class": "RigPackage"},
+    name="rig"
+)
 
 
 class D2gtGaffer(object):
@@ -166,14 +252,14 @@ class D2gtGaffer(object):
         gafferdict(GafferDict):
 
     Attributes:
-        rigs(dict):
+        packages(dict):
             exemple:
             {
-                "/rigA": D2gtRigPackage,
-                "/rigA/corridor": D2gtRigPackage,
-                "/rigA/corridor/top": D2gtRigPackage,
-                "/artistic/keys": D2gtRigPackage,
-                "/artistic": D2gtRigPackage
+                "/rigA": PackageSuperToolAPI.Packages.GroupPackage,
+                "/rigA/corridor": ...,
+                "/rigA/corridor/top": ...,
+                "/artistic/keys": ...,
+                "/artistic": ...
             }
     """
 
@@ -181,7 +267,6 @@ class D2gtGaffer(object):
 
         self.gd = gafferdict
         self._node = None
-        self._package_root = None
         self.packages = dict()
 
         return
@@ -197,28 +282,6 @@ class D2gtGaffer(object):
     @node.setter
     def node(self, node_value):
         self._node = node_value
-        self.pkg_root = node_value.getRootPackage()
-
-    @property
-    def package_root(self):
-        """
-        Returns:
-            D2gtRigPackage: Rig package as custom python object
-        """
-        return self._package_root
-
-    @package_root.setter
-    def package_root(self, package_root_value):
-        """
-        Args:
-            package_root_value(PackageSuperToolAPI.Packages.GroupPackage):
-        """
-        pkg = D2gtRigPackage(
-            package=package_root_value,
-            name=None,
-            parent=None
-        )
-        self._package_root = pkg
 
     def get_package_at(self, path):
         """
@@ -233,57 +296,49 @@ class D2gtGaffer(object):
             return self.node.getRootPackage()  # type: PackageSuperToolAPI.Packages.RootPackage
 
         # check first if the path is not already created
-        rig = self.packages.get(path)  # type: D2gtRigPackage
-        if rig:
-            return rig.package
+        pkg = self.packages.get(path)  # type: PackageSuperToolAPI.Packages.GroupPackage
+        if pkg:
+            return pkg
 
         path = path[1::]  # remove the first "/"
-        path_levels = len(path.split("/")) + 1  # we start counting at 1
         path_lvl = ""
-
-        for i in range(1, path_levels):
-
-            path_lvl = path.split("/", n-i)
-            rig = self.rigs.get(path_lvl)
-            if rig:
+        # get a list of all levels
+        path_levels = path.split("/")
+        # ! loop start counting at 1
+        for i in range(1, len(path_levels) + 1):
+            # rebuild the current level from the previous one
+            path_lvl = path_lvl + "/" + path_levels[i-1]  # type: str
+            pkg = self.packages.get(path_lvl)  # type: PackageSuperToolAPI.Packages.GroupPackage
+            if pkg:
                 continue
+            # else create the package
+            gcd = DefaultRigPkg.copy()
+            gcd.name = path_levels[i]
+            gcd["parent"] = path_lvl.rsplit("/", 1)[0]
+            pkg = self.create_package(data=gcd, parent=pkg)
 
-        return
+        return pkg
 
-    def create_rig_package(self, name, parent=None):
+    def create_package(self, data, parent=None):
         """
+        Create the GafferThree package with the given class and name and
+        configured with the data provided. Data include parent
+
         Args:
-            name(str):
-            parent(D2gtRigPackage):
-
-        Returns:
-            D2gtRigPackage:
-        """
-
-        parent = parent or self.package_root
-        pkg = parent.package.createChildPackage("RigPackage", name)
-        rig = D2gtRigPackage(
-            package=pkg,
-            name=name,
-            parent=parent
-        )
-        self.rigs[str(rig)] = rig
-        return rig
-
-    def create_package(self, pkg_class, pkg_name, data):
-        """
-        Args:
-            pkg_class(str): class of the package to create.
-            pkg_name: scene graph name of the package
+            parent(PackageSuperToolAPI.Packages.GroupPackage):
             data(GafferChildrenDict):
         """
-        parent = self.get_package_at(data.parent)
+        parent = parent or self.get_package_at(data.location)
+        pkg_name = data.name
+        pkg_class = data.class_
         pkg = parent.createChildPackage(pkg_class, pkg_name)
+        self.packages[data.path] = pkg
 
-        pkg.getMaterialNode()
-        pkg.getShadowLinkingNode()
-        pkg.getLinkingNodes()
-        pkg.getLocationPath()
+        for parampath, paramvalue in data.params.items():
+            param = package_get_param(package=pkg, param_path=parampath)
+            param.setValue(paramvalue, 0)
+            return
+
         return pkg
 
     def build(self, from_root=None):
@@ -307,16 +362,32 @@ class D2gtGaffer(object):
         self.node.setRootLocation(self.gd.rootLocation)
         self.node.setSyncSelection(self.gd.syncSelection)
 
-        for pkgname, pkgdata in self.gd.children.items():
+        # we iter a first time through all packages to assign their parent
+        pkg2create_dict = self.gd.children
+        pkg2create_list = list(pkg2create_dict.values())  # type: List[GafferChildrenDict]
+        for pkg2create in pkg2create_list:
+            pkg = pkg2create_dict.get(pkg2create.direct_parent)  # type: GafferChildrenDict
+            if pkg:
+                pkg2create.parent = pkg
 
-            pkgdata = pkgdata  # type: GafferChildrenDict
+        # reorder the list where firstindex = first package to create
+        pkg2create_prio = list()
+        pkg2create_low = list()
+        for pkg in pkg2create_list:
+            if pkg.children:
+                if pkg2create_prio and pkg2create_prio[-1].name == pkg.direct_parent:
+                    pkg2create_prio.append(pkg)
+                else:
+                    pkg2create_prio.insert(0, pkg)
+            else:
+                pkg2create_low.append(pkg)
 
-            self.create_package(
-                pkg_class=pkgdata.get("class"),
-                pkg_name=pkgname,
-                data=pkgdata
-            )
+        pkg2create_list = pkg2create_prio
+        pkg2create_list.extend(pkg2create_low)
 
+        # create the packages
+        for pkgdata in pkg2create_list:
+            self.create_package(data=pkgdata)
             continue
 
         return self.node
@@ -400,10 +471,10 @@ def dict_bake_tokens(sourcedict, tokendict):
                 v2 = tokendict.get(token[1::][:-1])
                 if v2 is None:
                     raise ValueError(
-                        "[dict_bake_tokens] Value <{}> for key <{}> not found"
-                        " in token dict.".format(v, k)
+                        "[dict_bake_tokens] token <{}> for key <{}> not found"
+                        " in token dict.".format(token, k)
                     )
-                v2 = v.replace(token, v2)
+                v2 = v.replace(token, str(v2))
                 sourcedict[k] = v2
 
         continue
@@ -419,27 +490,32 @@ def package_get_param(package, param_path):
         param_path(str):
             ex: getMaterialNode.params.arnoldSurfaceShader.exposure
 
-    Returns:
+    Raises:
+        RuntimeError: if param_path is invalid somehow.
 
+    Returns:
+        NodegraphAPI.Parameter:
     """
     param_root, param_name = param_path.split(".", 1)
+    # safe format param_root
+    param_root = param_root.lower()
 
-    if param_root == "getCreateNode":
+    if param_root == "create":
         node = package.getCreateNode()
 
-    elif param_root == "getMaterialNode":
+    elif param_root == "material":
         node = package.getMaterialNode()
 
-    elif param_root == "getShadowLinkingNode":
+    elif param_root == "shadowlinking":
         node = package.getShadowLinkingNode()
 
-    elif param_root == "getLinkingNodes":
+    elif param_root == "linking":
         node = package.getLinkingNodes()
 
-    elif param_root == "getOrientConstraintNode":
+    elif param_root == "orientconstraint":
         node = package.getOrientConstraintNode()
 
-    elif param_root == "getPointConstraintNode":
+    elif param_root == "pointconstraint":
         node = package.getPointConstraintNode()
 
     else:
@@ -464,23 +540,41 @@ def package_get_param(package, param_path):
     return param
 
 
-def run():
+def __test01():
 
-    token = "./tests/tokenDemo1.json"
+    token = {
+        "__type": "d2gt_token",
+        "lg_hdri_dome": "ArnoldHDRIDomeLightPackage",
+        "lg_hdri_quad": "ArnoldQuadLightPackage",
+        "exposure": "params.arnoldSurfaceShader.exposure.value",
+        "filepath": "params.arnoldSurfaceShader.filename.value",
+    }
     td = TokenDict(token)
 
-    scene_list = [
-        "./tests/demo1.json"
-    ]
-
-    for scene in scene_list:
-        gd = GafferDict(scene, tokendict=td)
-        print(json.dumps(gd, indent=4))
-        # gaffer = D2gtGaffer(gafferdict=gd)
-        # gaffer_node = gaffer.build()
+    scene = {
+        "__type": "d2gt_gaffer",
+        "name": "GafferThree_studio",
+        "rootLocation": "/root/world/lgt/gaffer",
+        "syncSelection": 1,
+        "children": {
+            "lg_hdri": {
+                "parent": "/rig",
+                "class": "<lg_hdri_dome>",
+                "params": {
+                    "material.<filepath>": "C:/test.tx",
+                    "material.<exposure>": 1
+                }
+            },
+        }
+    }
+    gd = GafferDict(scene, tokendict=td)
+    print(json.dumps(gd, indent=4))
+    gaffer = D2gtGaffer(gafferdict=gd)
+    gaffer_node = gaffer.build()
 
     return
 
+
 if __name__ == '__main__':
 
-    run()
+    __test01()
