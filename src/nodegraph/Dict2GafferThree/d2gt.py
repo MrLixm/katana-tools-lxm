@@ -6,8 +6,11 @@ python=>2.7.1
 
 """
 import json
+import logging
 import os
 import re
+import sys
+
 
 # only for documentation. (keep compatibility with py2)
 try:
@@ -30,6 +33,31 @@ __all__ = [
     "GafferChildrenDict",
     "TokenDict"
 ]
+
+
+def setup_logging(level):
+
+    logger = logging.getLogger("d2gt")
+    logger.setLevel(level)
+
+    if not logger.handlers:
+
+        # create a file handler
+        handler = logging.StreamHandler(stream=sys.stdout)
+        handler.setLevel(logging.DEBUG)
+        # create a logging format
+        formatter = logging.Formatter(
+            '%(asctime)s - [%(levelname)7s] %(name)38s // %(message)s',
+            datefmt='%H:%M:%S'
+        )
+        handler.setFormatter(formatter)
+        # add the file handler to the logger
+        logger.addHandler(handler)
+
+    return logger
+
+
+logger = setup_logging(logging.DEBUG)
 
 
 class BaseD2gtDict(dict):
@@ -159,9 +187,10 @@ class GafferChildrenDict(BaseD2gtDict):
         """
         v = super(GafferChildrenDict, self).copy()
         v = GafferChildrenDict(v, self.name)
-        v.parent = self.parent
-        v.children = self.children.copy()
-        return
+        if self.parent:
+            v.parent = self.parent
+        v.children = list(self.children)
+        return v
 
     @property
     def parent(self):
@@ -252,6 +281,7 @@ class D2gtGaffer(object):
         gafferdict(GafferDict):
 
     Attributes:
+        gd(GafferDict): gaffer to create as a dict object
         packages(dict):
             exemple:
             {
@@ -261,27 +291,16 @@ class D2gtGaffer(object):
                 "/artistic/keys": ...,
                 "/artistic": ...
             }
+        node(NodegraphAPI.Node): GafferThree node created
     """
 
     def __init__(self, gafferdict):
 
         self.gd = gafferdict
-        self._node = None
+        self.node = None  # type: NodegraphAPI.Node
         self.packages = dict()
 
         return
-
-    @property
-    def node(self):
-        """
-        Returns:
-            NodegraphAPI.Node: GafferThree node.
-        """
-        return self._node
-
-    @node.setter
-    def node(self, node_value):
-        self._node = node_value
 
     def get_package_at(self, path):
         """
@@ -313,7 +332,7 @@ class D2gtGaffer(object):
                 continue
             # else create the package
             gcd = DefaultRigPkg.copy()
-            gcd.name = path_levels[i]
+            gcd.name = path_levels[i-1]
             gcd["parent"] = path_lvl.rsplit("/", 1)[0]
             pkg = self.create_package(data=gcd, parent=pkg)
 
@@ -335,10 +354,17 @@ class D2gtGaffer(object):
         self.packages[data.path] = pkg
 
         for parampath, paramvalue in data.params.items():
-            param = package_get_param(package=pkg, param_path=parampath)
-            param.setValue(paramvalue, 0)
-            return
+            param = package_set_param(
+                package=pkg,
+                param_path=parampath,
+                param_value=paramvalue
+            )
+            continue
 
+        logger.debug(
+            "[D2gtGaffer][create_package] Finished for package <{}>({})"
+            "".format(pkg_name, pkg_class)
+        )
         return pkg
 
     def build(self, from_root=None):
@@ -351,6 +377,10 @@ class D2gtGaffer(object):
         Returns:
             NodegraphAPI.Node: created GafferThree node.
         """
+        logger.debug(
+            "[D2gtGaffer][build] Started with root={}".format(from_root)
+        )
+
         # create the node or replace it if it exists
         self.node = update_node(
             node_name=self.gd.name,
@@ -385,6 +415,11 @@ class D2gtGaffer(object):
         pkg2create_list = pkg2create_prio
         pkg2create_list.extend(pkg2create_low)
 
+        logger.debug(
+            "[D2gtGaffer][build] Packages to create are:\n    {}"
+            "".format(list(map(lambda p: p.path, pkg2create_list)))
+        )
+
         # create the packages
         for pkgdata in pkg2create_list:
             self.create_package(data=pkgdata)
@@ -402,7 +437,7 @@ def update_node(node_name, node_type, root=None):
         NodegraphAPI.Node: newly created node
     """
     new = NodegraphAPI.CreateNode(node_type, root or NodegraphAPI.GetRootNode())
-    if isinstance(new, NodegraphAPI.GroupNode):
+    if new.getType() == "Group":
         new_in = new.addInputPort("in")
         new_out = new.addOutputPort("out")
     else:
@@ -427,7 +462,10 @@ def update_node(node_name, node_type, root=None):
         if out_port:
             out_port.connect(new_out)
 
+        logger.info("[update_node] Found existing node, it has been updated.")
+
     new.setName(node_name)
+    logger.info("[update_node] Finished for node <{}>".format(node_name))
     return new
 
 
@@ -482,19 +520,20 @@ def dict_bake_tokens(sourcedict, tokendict):
     return sourcedict
 
 
-def package_get_param(package, param_path):
+def package_set_param(package, param_path, param_value):
     """
 
     Args:
+        param_value(any): value to set on the parameter found.
         package(PackageSuperToolAPI.Packages.Package):
         param_path(str):
-            ex: getMaterialNode.params.arnoldSurfaceShader.exposure
+            ex: material.shaders.arnoldLightParams.exposure.value
 
     Raises:
         RuntimeError: if param_path is invalid somehow.
 
     Returns:
-        NodegraphAPI.Parameter:
+        NodegraphAPI.Parameter: parameter found and modified
     """
     param_root, param_name = param_path.split(".", 1)
     # safe format param_root
@@ -505,6 +544,7 @@ def package_get_param(package, param_path):
 
     elif param_root == "material":
         node = package.getMaterialNode()
+        node.checkDynamicParameters()
 
     elif param_root == "shadowlinking":
         node = package.getShadowLinkingNode()
@@ -537,6 +577,12 @@ def package_get_param(package, param_path):
             "".format(param_name, package, node)
         )
 
+    param.setValue(param_value, 0)
+    try:
+        node.checkDynamicParameters()
+    except AttributeError:
+        pass
+
     return param
 
 
@@ -544,10 +590,10 @@ def __test01():
 
     token = {
         "__type": "d2gt_token",
-        "lg_hdri_dome": "ArnoldHDRIDomeLightPackage",
+        "lg_hdri_dome": "ArnoldHDRISkydomeLightPackage",
         "lg_hdri_quad": "ArnoldQuadLightPackage",
-        "exposure": "params.arnoldSurfaceShader.exposure.value",
-        "filepath": "params.arnoldSurfaceShader.filename.value",
+        "exposure": "shaders.arnoldLightParams.exposure",
+        "filepath": "shaders.arnoldSurfaceParams.filename",
     }
     td = TokenDict(token)
 
@@ -561,10 +607,21 @@ def __test01():
                 "parent": "/rig",
                 "class": "<lg_hdri_dome>",
                 "params": {
-                    "material.<filepath>": "C:/test.tx",
-                    "material.<exposure>": 1
+                    "material.<filepath>.value": "C:/test.tx",
+                    "material.<filepath>.enable": 1,
+                    "material.<exposure>.value": 1,
+                    "material.<exposure>.enable": 1
                 }
             },
+            "lg_quad": {
+                "parent": "",
+                "class": "<lg_hdri_quad>",
+                "params": {
+                    "material.<exposure>.value": 15,
+                    "material.<exposure>.enable": 1,
+                }
+            },
+
         }
     }
     gd = GafferDict(scene, tokendict=td)
@@ -572,9 +629,10 @@ def __test01():
     gaffer = D2gtGaffer(gafferdict=gd)
     gaffer_node = gaffer.build()
 
+    print("[__test01] Finished")
     return
 
 
-if __name__ == '__main__':
+if __name__ == '__main__' or __name__ == "__builtin__":
 
     __test01()
