@@ -69,6 +69,10 @@ Else each script should always have a top docstring for documentation.
 
       Modify Backdrops nodes attributes.
 
+  - [`Dict2GafferThree`](./src/nodegraph/Dict2GafferThree)
+
+      Create and build a GafferThree node from a python dictionary.
+
 - supertools
   
   - [`GSVDashboard`](https://github.com/MrLixm/GSVDashboard)
