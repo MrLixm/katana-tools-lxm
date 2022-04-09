@@ -4,9 +4,7 @@
 Collections of scripting stuff I wrote for Foundry's Katana software.
 
 
-|<img width="800" alt="Create GSV scipt" src="./src/nodegraph/CreateGSV/demo.gif">  CreateGSV |  <img width="800" alt="LightViewerAnnotate script" src="./src/viewer/LightViewerAnnotate/doc/img/header.jpg"> LightViewerAnnotate |
-|:-------------------------:|:-------------------------:|
-|<img width="800" alt="getLogicalUpstreamNodes" src="./src/nodegraph/getLogicalUpstreamNodes/doc/img/cover.jpg">  getLogicalUpstreamNodes  |<img width="800" alt="KUI" src="https://raw.githubusercontent.com/MrLixm/KUI/dev/doc/img/thumbnail.jpg">  KUI  |
+|<img width="800" alt="Cover image" src="./img/cover.jpg">
 
 ## Utilisation
 
