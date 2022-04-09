@@ -5,6 +5,8 @@
 
 Create and build a GafferThree node from a python dictionary.
 
+<img src="doc/img/cover.jpg" width="800">
+
 # Features
 
 - Render Engine agnostic.

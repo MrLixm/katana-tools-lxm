@@ -1,3 +1,5 @@
+# <img src="img/logo.svg" width="25" alt=logo> Index
+
 Welcome on the D2gt documentation.
 
 [![root](https://img.shields.io/badge/back_to_root-536362?)](../README.md)
