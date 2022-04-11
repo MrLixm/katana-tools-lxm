@@ -1,9 +1,8 @@
 """
-version=2
+version=4
 author=Liam Collod
-last_modified=08/04/2022
+last_modified=11/04/2022
 python=>2.7.1
-
 """
 import json
 import logging
@@ -34,6 +33,10 @@ __all__ = [
     "TokenDict",
     "D2gtGaffer"
 ]
+
+__PY3 = sys.version_info[0] == 3
+if __PY3:
+    basestring = str
 
 
 def setup_logging(level):
@@ -74,7 +77,7 @@ class BaseD2gtDict(dict):
 
     def __init__(self, build_object):
 
-        if isinstance(build_object, str):
+        if isinstance(build_object, basestring):
             self.build_from_file(build_object)
         else:
             super(BaseD2gtDict, self).__init__(build_object)
@@ -146,11 +149,11 @@ class GafferDict(BaseD2gtDict):
 
     @property
     def name(self):
-        return self.get("name")
+        return str(self.get("name"))
 
     @property
     def rootLocation(self):
-        return self.get("rootLocation", "/root/world/lgt/gaffer")
+        return str(self.get("rootLocation", "/root/world/lgt/gaffer"))
 
     @property
     def syncSelection(self):
@@ -177,7 +180,7 @@ class GafferChildrenDict(BaseD2gtDict):
 
     def __init__(self, build_object, name):
         super(GafferChildrenDict, self).__init__(build_object)
-        self.name = name
+        self.name = str(name)
         self._parent = None  # type: Optional[GafferChildrenDict]
         self.children = list()  # type: List[GafferChildrenDict]
 
@@ -220,7 +223,7 @@ class GafferChildrenDict(BaseD2gtDict):
         Returns:
             str:
         """
-        return self.get("parent", "")
+        return str(self.get("parent", ""))
 
     @property
     def path(self):
@@ -251,7 +254,7 @@ class GafferChildrenDict(BaseD2gtDict):
         Returns:
             str:
         """
-        return self["class"]
+        return str(self["class"])
 
     @property
     def params(self):
@@ -390,7 +393,7 @@ class D2gtGaffer(object):
         )
         self.pkg_root = self.node.getRootPackage()
 
-        self.node.setRootLocation(self.gd.rootLocation)
+        self.node.setRootLocation(str(self.gd.rootLocation))
         self.node.setSyncSelection(self.gd.syncSelection)
 
         # we iter a first time through all packages to assign their parent
@@ -486,7 +489,7 @@ def dict_bake_tokens(sourcedict, tokendict):
 
     for k, v in list(sourcedict.items()):
 
-        if isinstance(k, str):
+        if isinstance(k, basestring):
 
             for token in set(re.findall(regex, k)):
                 if sourcedict.get(k) is not None: del sourcedict[k]
@@ -504,7 +507,7 @@ def dict_bake_tokens(sourcedict, tokendict):
 
             sourcedict[k] = dict_bake_tokens(v, tokendict)
 
-        elif isinstance(v, str):
+        elif isinstance(v, basestring):
 
             for token in set(re.findall(regex, v)):
                 v2 = tokendict.get(token[1::][:-1])
@@ -578,7 +581,12 @@ def package_set_param(package, param_path, param_value):
             "".format(param_name, package, node)
         )
 
-    param.setValue(param_value, 0)
+    try:
+        param.setValue(param_value, 0)
+    except TypeError as excp:
+        if "needs a string" in excp.args[0]:
+            param.setValue(str(param_value), 0)
+
     try:
         node.checkDynamicParameters()
     except AttributeError:
