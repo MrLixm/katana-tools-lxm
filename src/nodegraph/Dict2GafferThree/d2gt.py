@@ -110,7 +110,7 @@ class BaseD2gtDict(dict):
                 "".format(filepath)
             )
 
-        with open(filepath, "r", encoding="utf-8") as d2gtfile:
+        with open(filepath, "r") as d2gtfile:
             c = json.load(d2gtfile)
 
         super(BaseD2gtDict, self).__init__(c)
