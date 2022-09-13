@@ -1,9 +1,11 @@
 [submodule "src/instancing/KUI"]
 	path = src/instancing/KUI
 	url = https://github.com/MrLixm/KUI
+	branch = main
 [submodule "src/supertools/GSVDashboard"]
 	path = src/supertools/GSVDashboard
 	url = https://github.com/MrLixm/GSVDashboard
+	branch = main
 [submodule "src/opscripting"]
 	path = src/opscripting
 	url = https://github.com/MrLixm/opscripting
