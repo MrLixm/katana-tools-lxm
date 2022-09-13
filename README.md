@@ -1,44 +1,25 @@
 ![header:katana logo](./img/header.jpg)
 
 
-Collections of scripting stuff I wrote for Foundry's Katana software.
+Collections of resources and tools I wrote for Foundry's Katana software.
 
-
-|<img width="800" alt="Cover image" src="./img/cover.jpg">
-
-## Utilisation
+# Utilisation
 
 You can have a look at the  `README.md` file in each folder.
 
 Else each script should always have a top docstring for documentation.
 
 
-## What's Inside
+# Content
 
-- attributes
+This repo act as a "master" repo where I just bring in all the stuff I made.
+For this I'm using the git submodules feature to link other repositories.
+Those submodules must always point to a certain commit so if you click on them
+**make sure to switch back to the main branch.**
 
-  - [`attrTypeSwap`](./src/attributes/attrTypeSwap) 
-      
-      Quickly change the data type used for an attribute for another one.
-  
-  - [`attrMath`](./src/attributes/attrMath) 
-      
-      Apply basic math operations on attributes values.
+> **Warning** structure of the repo might sometimes completely change.
 
-- viewer
-  
-  - [`LightViewerAnnotate`](./src/viewer/LightViewerAnnotate) 
-  
-      Annotate (& color) lights in the viewer using their attributes.
-  
-  - [`PointcloudWidth`](./src/viewer/PointcloudWidth)
-  
-      Add a `geometry.point.width` attribute to control the size of the points in the viewer.
-  
-  - [`PointcloudXform2P`](./src/viewer/PointcloudXform2P)
-  
-      Merge xform transformations to the `geometry.point.P` attribute.
-  
+
 - instancing
 
   - [`KUI`](https://github.com/MrLixm/KUI) 
@@ -71,28 +52,30 @@ Else each script should always have a top docstring for documentation.
 
       Create and build a GafferThree node from a python dictionary.
 
+- opscripting
+  
+  - [`opscripting`](https://github.com/MrLixm/opscripting)
+  
+    Resources to integrate the Katana OpScript workflow in a version-controled pipeline.
+
 - supertools
   
   - [`GSVDashboard`](https://github.com/MrLixm/GSVDashboard)
   
     Preview and edit the Graph State Variables (GSV) in your nodegraph.
-
-- utility
-  
-  - [`llloger`](https://github.com/MrLixm/llloger)
-  
-    A simple lua logging module based on Python's one.
-  
+ 
+|<img width="800" alt="Cover image" src="./img/cover.jpg">
 
     
 
-## Licensing
+# Legal
 
-License should be specified in each directory or in the top of each file else
-the terms specified in the root's [LICENSE.md](./LICENSE.md) file will apply.
+License should be specified in each directory or in the top of each file.
+If none of them is present then the license specified in this repo [LICENSE.md](./LICENSE.md) file will apply.
 
 
-## Contact
+You can request a specific license by contacting me at [monsieurlixm@gmail.com](mailto:monsieurlixm@gmail.com) .
 
-[monsieurlixm@gmail.com](mailto:monsieurlixm@gmail.com)
-
+<a href='https://ko-fi.com/E1E3ALNSG' target='_blank'>
+<img height='36' style='border:0px;height:36px;' src='https://cdn.ko-fi.com/cdn/kofi1.png?v=3' border='0' alt='Buy Me a Coffee at ko-fi.com' />
+</a> 
