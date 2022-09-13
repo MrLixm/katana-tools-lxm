@@ -58,6 +58,10 @@ Those submodules must always point to a certain commit so if you click on them
   
     Resources to integrate the Katana OpScript workflow in a version-controled pipeline.
 
+- startup
+  
+  examples of Katana launcher scripts with environment variables configurations
+
 - supertools
   
   - [`GSVDashboard`](https://github.com/MrLixm/GSVDashboard)
