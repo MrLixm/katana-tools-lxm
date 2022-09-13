@@ -1,19 +1,22 @@
 :: Katana launcher script
-:: Made for test of KUI module.
+:: variables starting by "U" are only useful in this script and not used by Katana itself
 @echo on
 
+:: constants to easily upgrade between versions
 set "U_KATANA_VERSION=4.5v1"
-set "U_PRMAN_KATANA_VERSION=katana4.5"
 set "U_KATANA_HOME=C:\Program Files\Katana%U_KATANA_VERSION%"
+set "U_USER_PREFS=Z:\dccs\katana\library\shelf0006\prefs"
 
+:: Katana agnostic config
 set "DEFAULT_RENDERER=dl"
-set "KATANA_TAGLINE=With 3Delight, Arnold 4.0.0.2, RenderMan 24.3, XGEN, KUI"
-
-set "PATH=%PATH%;%U_KATANA_HOME%\bin";
+set "KATANA_TAGLINE=With 3Delight, Arnold 4.0.0.2, RenderMan 24.3, XGEN"
 set KATANA_CATALOG_RECT_UPDATE_BUFFER_SIZE=1
-set "KATANA_USER_RESOURCE_DIRECTORY=Z:\dccs\katana\library\shelf0006\prefs"
+set "KATANA_USER_RESOURCE_DIRECTORY=%U_USER_PREFS%"
 
-set "LUA_PATH=%LUA_PATH%;Z:\dccs\katana\library\shelf0006\lua\?.lua"
+rem optional
+set "PATH=%PATH%;%U_KATANA_HOME%\bin";
+rem for opscripting :
+set "LUA_PATH=%LUA_PATH%;whatever/?.lua"
 
 :: Delight config
 set "U_DELIGHT=C:\Program Files\3Delight"
@@ -32,6 +35,7 @@ set "PATH=%PATH%;%U_KTOA_HOME%\bin"
 set "KATANA_RESOURCES=%KATANA_RESOURCES%;%U_KTOA_HOME%"
 
 :: Prman config
+set "U_PRMAN_KATANA_VERSION=katana4.5"
 set "U_PRMAN_HOME=C:\Program Files\Pixar\RenderManForKatana-24.3"
 set "RMANTREE=C:\Program Files\Pixar\RenderManProServer-24.3"
 set "KATANA_RESOURCES=%KATANA_RESOURCES%;%U_PRMAN_HOME%\plugins\%U_PRMAN_KATANA_VERSION%"
