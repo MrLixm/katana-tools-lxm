@@ -1,0 +1,11 @@
+name = "Foundry_Katana"
+version = "1.0.0"
+description = "Collection of resources for Foundry's Katana software."
+license = "Apache-2.0"
+authors = ["Liam Collod <monsieurlixm@gmail.com>"]
+readme = "README.md"
+repository = "https://github.com/MrLixm/Foundry_Katana"
+keywords = ["vfx", "katana", "opscript"]
+dependencies = [
+    "katana>=3.6",
+]
