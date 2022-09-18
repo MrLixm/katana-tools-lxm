@@ -26,29 +26,29 @@ Those submodules must always point to a certain commit so if you click on them
       
       Provide a flexible solution for instancing based on point-cloud locations. 
 
-- nodegraph
+- python
 
-  - [`CreateGSV`](./src/nodegraph/CreateGSV)
+  - [`CreateGSV`](./src/python/CreateGSV)
 
       Configure the scene's graph state variables as simple as configuring a python dictionary.
 
-  - [`DivideResolution`](./src/nodegraph/DivideResolution)
+  - [`DivideResolution`](./src/python/DivideResolution)
 
       Divide the current render resolution by the given amount.
   
-  - [`getLogicalUpstreamNodes`](./src/nodegraph/getLogicalUpstreamNodes)
+  - [`getLogicalUpstreamNodes`](./src/python/getLogicalUpstreamNodes)
      
     Parse scene to return a list of node connected to the given source node.
 
-  - [`node2xml`](./src/nodegraph/node2xml)
+  - [`node2xml`](./src/python/node2xml)
      
     Convert the selected nodes to an XML representation.
 
-  - [`BackdropAttrEdit`](./src/nodegraph/BackdropAttrEdit)
+  - [`BackdropAttrEdit`](./src/python/BackdropAttrEdit)
 
       Modify Backdrops nodes attributes.
 
-  - [`Dict2GafferThree`](./src/nodegraph/Dict2GafferThree)
+  - [`Dict2GafferThree`](./src/python/Dict2GafferThree)
 
       Create and build a GafferThree node from a python dictionary.
 
